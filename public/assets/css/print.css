@@ -1,0 +1,50 @@
+/* VOIDBILL — print stylesheet. Only the invoice paper survives printing. */
+
+@media print {
+    @page {
+        size: A4;
+        margin: 16mm;
+    }
+
+    html, body {
+        background: #ffffff !important;
+        color: #1a1c1f !important;
+    }
+
+    .topbar,
+    .shell > .page-header,
+    .no-print,
+    .toast-region,
+    .cmdk-overlay,
+    .form-panel,
+    .preview-actions,
+    .skip-link {
+        display: none !important;
+    }
+
+    .shell {
+        max-width: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .workspace {
+        display: block;
+    }
+
+    .paper {
+        box-shadow: none !important;
+        border-radius: 0;
+        padding: 0;
+        color: #1a1c1f !important;
+    }
+
+    .panel--sticky {
+        position: static;
+    }
+
+    a {
+        color: inherit !important;
+        text-decoration: none !important;
+    }
+}

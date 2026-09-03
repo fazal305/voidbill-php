@@ -108,6 +108,32 @@ a {
     background: rgba(78, 225, 160, 0.08);
 }
 
+@media (max-width: 640px) {
+    .topbar {
+        flex-wrap: wrap;
+        row-gap: var(--space-2);
+        padding: var(--space-3) var(--space-4);
+    }
+    .brand__tagline {
+        display: none;
+    }
+    .topnav {
+        order: 3;
+        width: 100%;
+        gap: 0;
+        justify-content: space-between;
+    }
+    .topnav a {
+        padding: var(--space-2);
+        font-size: 12px;
+        flex: 1;
+        text-align: center;
+    }
+    .topbar__hint {
+        display: none;
+    }
+}
+
 .topbar__hint {
     font-family: var(--font-mono);
     font-size: 11px;

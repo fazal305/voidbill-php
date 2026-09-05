@@ -7,10 +7,11 @@ deliberately as a PHP-fundamentals learning project — and phased so that
 every language feature earns its place in a real application feature
 rather than being bolted on to check a box.
 
-> **Status: Phase 4 of 15 — calculation engine.** There is still no
-> validation (Phase 5) — whatever you submit is accepted as-is, but the
-> totals shown are now the real, server-calculated numbers. This README,
-> and the app itself, will grow with each phase.
+> **Status: Phase 5 of 15 — server-side validation.** Bad input (empty
+> required fields, negative numbers, invalid percentages, malformed
+> email, impossible dates) is now rejected with field-level messages,
+> and every value you typed is preserved. This README, and the app
+> itself, will grow with each phase.
 
 ## Why a phased build?
 
@@ -44,16 +45,17 @@ voidbill-php/
 │       ├── variables.css       Design tokens (colors, spacing, type)
 │       └── app.css             Shell + form + paper layout
 ├── src/
-│   └── calculations.php        calculateLineTotal(), calculateSubtotal(),
-│                                calculateDiscount(), calculateTax(),
-│                                calculateGrandTotal(), formatCurrency()
+│   ├── calculations.php         calculateLineTotal(), calculateSubtotal(),
+│   │                             calculateDiscount(), calculateTax(),
+│   │                             calculateGrandTotal(), formatCurrency()
+│   └── validation.php           validateInvoiceData(), isValidDate()
 ├── config/
-│   └── config.php              App name, tagline, currency symbol, env
+│   └── config.php               App name, tagline, currency symbol, env
 ├── README.md, LICENSE, .gitignore
 ```
 
-This will grow: validation arrives in Phase 5; `storage/` when
-persistence is introduced in Phase 7.
+This will grow: `storage/` arrives when persistence is introduced in
+Phase 7.
 
 ## Calculation Flow
 
@@ -102,6 +104,9 @@ on its own, from a plain PHP script, with no web server involved (see
 | Variable scope | `$subtotal` inside `calculateSubtotal()` is local — the caller only ever sees it via the return value |
 | `switch` | `calculateDiscount()` branches on `$discountType` (`'percentage'` vs `'fixed'`) |
 | Arithmetic operators | `$quantity * $unitPrice`, `$subtotal - $discountAmount`, `$taxableAmount + $taxAmount` |
+| Logical operators | `$description === '' && $quantity === '' && $unitPrice === ''` (skip a fully-blank row); `(float)$settings['tax_percent'] < 0 \|\| (float)$settings['tax_percent'] > 100` |
+| `in_array()` | Validating `$invoice['status']` and `$settings['discount_type']` against allow-lists in [`src/validation.php`](src/validation.php); also `in_array($action, ['add_item', 'remove_item'], true)` decides whether to validate at all |
+| `continue` | Skipping a fully-blank item row during validation instead of flagging it as an error |
 
 This table will keep growing through Phase 15 — a concept is only listed
 here once it's genuinely present in the code, not in anticipation of a
@@ -138,13 +143,42 @@ in a browser (filling fields, clicking Add Item, submitting) rather than
 just trusting the standalone script — both agreed. Also checked: no
 console errors, and no horizontal overflow at 375px mobile width.
 
+`src/validation.php` was checked with a second standalone script against
+every case your spec's validation-testing section calls for:
+
+| Case | Result |
+|---|---|
+| Empty customer name | ✅ rejected |
+| Empty item description | ✅ rejected |
+| Zero quantity | ✅ rejected |
+| Negative quantity | ✅ rejected |
+| Negative price | ✅ rejected |
+| Discount over 100% | ✅ rejected |
+| Tax over 100% | ✅ rejected |
+| Malformed email | ✅ rejected |
+| Invalid date string | ✅ rejected |
+| Due date before invoice date | ✅ rejected |
+| Empty item array | ✅ rejected |
+| Invalid status (not in the allow-list) | ✅ rejected |
+| Decimal quantity (e.g. 2.5) | ✅ accepted |
+| Large monetary value | ✅ accepted |
+| Multiple items with one blank trailing row | ✅ blank row skipped, real items still validated |
+| Fully valid submission | ✅ no errors |
+
+Then re-confirmed live in the browser: submitting a blank form shows
+"Customer name is required." and "Add at least one invoice item." with
+the exact fields outlined in red; clicking "+ Add Item" does *not*
+trigger these errors (only a real "Update Preview" submission does);
+fixing the fields and resubmitting clears every error and restores the
+Rs. 18,900.00 totals.
+
 ## Development Phases
 
 1. Foundation — project structure, config, design system, app shell
 2. Invoice data structure (associative/multidimensional arrays)
 3. Invoice form (`$_POST`, line items, add/remove)
-4. **PHP calculation engine (functions, arguments, return values)** *(this phase)*
-5. Server-side validation
+4. PHP calculation engine (functions, arguments, return values)
+5. **Server-side validation** *(this phase)*
 6. `foreach`-driven invoice rendering
 7. Invoice numbering + JSON persistence
 8. Professional invoice preview

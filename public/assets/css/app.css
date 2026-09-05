@@ -185,6 +185,11 @@ body {
     color: var(--paper-muted);
 }
 
+.paper__meta--error {
+    color: var(--color-danger);
+    font-weight: 600;
+}
+
 .paper__totals-row--grand {
     border-top: 2px solid var(--paper-text);
     margin-top: var(--space-2);
@@ -246,6 +251,37 @@ legend {
     font-size: 12px;
     font-weight: 600;
     color: var(--color-text-muted);
+}
+
+.field.has-error input,
+.field.has-error select,
+.field.has-error textarea {
+    border-color: var(--color-danger);
+}
+
+.field-error {
+    margin: var(--space-1) 0 0;
+    font-size: 12px;
+    color: var(--color-danger);
+}
+
+.empty-state.has-error {
+    border-color: var(--color-danger);
+    color: var(--color-danger);
+}
+
+.alert {
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    margin-bottom: var(--space-4);
+    border: 1px solid;
+}
+
+.alert--error {
+    background: rgba(242, 85, 90, 0.08);
+    border-color: var(--color-danger);
+    color: #ffb3b6;
 }
 
 .field input,

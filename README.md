@@ -7,11 +7,10 @@ deliberately as a PHP-fundamentals learning project — and phased so that
 every language feature earns its place in a real application feature
 rather than being bolted on to check a box.
 
-> **Status: Phase 9 of 15 — the print system.** "Print Invoice" opens
-> the browser's print dialog, and a dedicated print stylesheet strips
-> away everything except the invoice document — no dark shell, no
-> form, no buttons — laid out for A4. This README, and the app itself,
-> will grow with each phase.
+> **Status: Phase 10 of 15 — dashboard / invoice history.** A second
+> page, `dashboard.php`, now summarizes every invoice ever generated:
+> total count, total value, paid vs outstanding, and the 5 most recent.
+> This README, and the app itself, will grow with each phase.
 
 ## Why a phased build?
 
@@ -42,6 +41,7 @@ Then visit `http://localhost:8000`.
 voidbill-php/
 ├── public/
 │   ├── index.php              Form, $_POST handling, and rendering
+│   ├── dashboard.php           Invoice history + stats (read-only)
 │   └── assets/css/
 │       ├── variables.css       Design tokens (colors, spacing, type)
 │       ├── app.css             Shell + form + paper layout
@@ -176,6 +176,9 @@ white background, exactly as it looks in the on-screen preview.
 | `sprintf()` | Formatting the invoice number as `INV-2026-0001` with zero-padding (`%04d`) |
 | Increment operator | `$sequence++;` builds each new invoice number in [`src/persistence.php`](src/persistence.php) |
 | `nl2br()` | Preserving line breaks the user typed in Notes/Payment Terms/Terms & Conditions when they're rendered as HTML |
+| `for` | [`public/dashboard.php`](public/dashboard.php) collects up to 5 recent invoices by index — "up to N, by position" is a counted loop, not a "do this for every item" `foreach` |
+| Sorting (`usort()`) | Sorting `$invoices` by `generatedAt`, newest first, before slicing the recent list |
+| `array_is_list()` | Guarding `saveInvoiceRecord()`/`loadInvoices()` against a JSON file that decoded to an object instead of a list |
 
 This table will keep growing through Phase 15 — a concept is only listed
 here once it's genuinely present in the code, not in anticipation of a
@@ -192,6 +195,19 @@ re-renders the same page with one more or one fewer row. Removal is
 deliberately last-row-only for now, matching how `array_pop()` naturally
 pairs with `array_push()` — removing an arbitrary row would need
 `array_splice()` or a keyed `unset()`, which isn't necessary yet.
+
+### A note on `usort()` instead of `sort()` / `rsort()`
+
+`sort()` and `rsort()` compare whole array elements to each other —
+that's perfect for a flat list of numbers or strings, but `$invoices`
+is an array of associative arrays (records), and what "recent" needs
+is a sort *by one field* (`generatedAt`), not by comparing entire
+records. `usort()` with a comparison callback is the correct tool for
+that job; reaching for `sort()`/`rsort()` here would either fail
+outright or sort by some arbitrary/undefined comparison of the whole
+array. This is exactly the kind of case the project tries to avoid —
+using a function because it's on a list, rather than because it's
+actually correct for the data.
 
 ## Testing Performed (so far)
 
@@ -309,6 +325,24 @@ a printed page can't scroll), the long note wrapped without clipping,
 and `document.body.scrollWidth === window.innerWidth` held with no
 overflow.
 
+`dashboard.php` was verified against real generated data (6 invoices
+across 3 customers, mixed DRAFT/PAID statuses): Total Value
+(Rs. 377,400.00), Paid (Rs. 166,750.00), and Outstanding
+(Rs. 210,650.00) were all checked by hand against the sum of the
+underlying records and matched exactly. Sorting was confirmed by
+generating invoices in one order and seeing them listed
+newest-generated-first (`INV-2026-0006` before `-0005`, etc.), proving
+`usort()`'s comparator actually runs rather than happening to already
+be in order. The 5-invoice cap was confirmed by generating a 6th
+invoice and watching the oldest one (`INV-2026-0001`) drop off the
+list while the "Showing the 5 most recent of 6 invoices" note appeared
+— then re-checked that the note is correctly absent when there are 5
+or fewer. The empty state was tested by temporarily renaming
+`invoices.json` out of the way: the dashboard showed all-zero stats
+and a "no invoices yet" message rather than crashing on a missing
+file. No console errors; no mobile overflow (the nav wraps under 640px
+using the same technique already applied on the main page).
+
 ## Development Phases
 
 1. Foundation — project structure, config, design system, app shell
@@ -319,8 +353,8 @@ overflow.
 6. `foreach`-driven invoice rendering
 7. Invoice numbering + JSON persistence
 8. Professional invoice preview
-9. **Print system** *(this phase)*
-10. Dashboard / invoice history
+9. Print system
+10. **Dashboard / invoice history** *(this phase)*
 11. UX polish (autosave, toasts, shortcuts)
 12. UI/UX audit
 13. Testing

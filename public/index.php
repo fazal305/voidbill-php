@@ -268,9 +268,13 @@ function formatDisplayDate(string $value): string
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
 
-<header class="topbar">
+<header class="topbar no-print">
     <span class="topbar__mark">VOID<span>BILL</span></span>
     <span class="topbar__tagline"><?= e($tagline) ?></span>
+    <nav class="topnav">
+        <a href="index.php" aria-current="page">New Invoice</a>
+        <a href="dashboard.php">Dashboard</a>
+    </nav>
     <?php if ($isDev): ?>
         <span class="env-badge">PHP <?= e($phpVersion) ?> · dev</span>
     <?php endif; ?>

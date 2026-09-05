@@ -7,12 +7,11 @@ deliberately as a PHP-fundamentals learning project — and phased so that
 every language feature earns its place in a real application feature
 rather than being bolted on to check a box.
 
-> **Status: Phase 7 of 15 — invoice numbering and JSON persistence.**
-> "Generate Invoice" now assigns a real sequential number
-> (`INV-2026-0001`, `-0002`, ...) and saves the finished invoice to a
-> locked JSON file — "Update Preview" still just calculates and
-> validates, without burning a number. This README, and the app itself,
-> will grow with each phase.
+> **Status: Phase 8 of 15 — the professional invoice preview.** The
+> preview panel is now a genuine invoice document: full business and
+> customer contact details, invoice date and due date, a color-coded
+> status badge, payment terms, and terms & conditions. This README, and
+> the app itself, will grow with each phase.
 
 ## Why a phased build?
 
@@ -145,7 +144,7 @@ similar until you hit this exact bug.
 | Return values | Every calculation function returns its result rather than assigning to an outer-scope variable |
 | Default parameters | `formatCurrency(float $amount, string $currency = 'Rs.')` |
 | Variable scope | `$subtotal` inside `calculateSubtotal()` is local — the caller only ever sees it via the return value |
-| `switch` | `calculateDiscount()` branches on `$discountType` (`'percentage'` vs `'fixed'`) |
+| `switch` | `calculateDiscount()` branches on `$discountType` (`'percentage'` vs `'fixed'`); `statusBadgeClass()` in [`public/index.php`](public/index.php) branches on invoice status to pick a badge color — the two exact candidates the spec calls out for `switch` |
 | Arithmetic operators | `$quantity * $unitPrice`, `$subtotal - $discountAmount`, `$taxableAmount + $taxAmount` |
 | Logical operators | `$description === '' && $quantity === '' && $unitPrice === ''` (skip a fully-blank row); `(float)$settings['tax_percent'] < 0 \|\| (float)$settings['tax_percent'] > 100` |
 | `in_array()` | Validating `$invoice['status']` and `$settings['discount_type']` against allow-lists in [`src/validation.php`](src/validation.php); also `in_array($action, ['add_item', 'remove_item'], true)` decides whether to validate at all |
@@ -154,6 +153,7 @@ similar until you hit this exact bug.
 | `json_encode()` / `json_decode()` | Reading and writing `storage/counter.json` and `storage/invoices.json` |
 | `sprintf()` | Formatting the invoice number as `INV-2026-0001` with zero-padding (`%04d`) |
 | Increment operator | `$sequence++;` builds each new invoice number in [`src/persistence.php`](src/persistence.php) |
+| `nl2br()` | Preserving line breaks the user typed in Notes/Payment Terms/Terms & Conditions when they're rendered as HTML |
 
 This table will keep growing through Phase 15 — a concept is only listed
 here once it's genuinely present in the code, not in anticipation of a
@@ -261,6 +261,18 @@ trusting the UI); clicking "Update Preview" twice in a row left
 invoice produced `INV-2026-0002` with no gap or collision. No console
 errors; no mobile overflow with the new two-button layout.
 
+Phase 8's expanded preview was checked in the browser with a fully
+filled-in invoice (Ahmed Traders, full contact details, payment terms,
+terms & conditions): every field appeared correctly — business and
+customer contact blocks, formatted invoice/due dates ("05 September
+2026"), and a `PAID` status badge that correctly switched from gray to
+green when the status dropdown was changed (confirming
+`statusBadgeClass()`'s `switch` branches work, not just the default
+case). Generated an invoice and confirmed `paymentTerms` and
+`termsConditions` were saved into `storage/invoices.json` by reading
+the file directly. Re-checked mobile: the new invoice-date/due-date/
+status row collapses to a single column under 560px with no overflow.
+
 ## Development Phases
 
 1. Foundation — project structure, config, design system, app shell
@@ -269,8 +281,8 @@ errors; no mobile overflow with the new two-button layout.
 4. PHP calculation engine (functions, arguments, return values)
 5. Server-side validation
 6. `foreach`-driven invoice rendering
-7. **Invoice numbering + JSON persistence** *(this phase)*
-8. Professional invoice preview
+7. Invoice numbering + JSON persistence
+8. **Professional invoice preview** *(this phase)*
 9. Print system
 10. Dashboard / invoice history
 11. UX polish (autosave, toasts, shortcuts)

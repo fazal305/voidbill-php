@@ -1,13 +1,17 @@
 <?php
 /**
- * VOIDBILL — Phase 7: invoice numbering and JSON persistence.
+ * VOIDBILL — Phase 8: the professional invoice preview.
+ *
+ * The paper preview now shows everything a real invoice needs: full
+ * business and customer contact details, invoice date and due date,
+ * a color-coded status badge, payment terms, and terms & conditions —
+ * not just a name and a total.
  *
  * "Update Preview" (validates + calculates, doesn't commit anything) and
  * "Generate Invoice" (validates + calculates + assigns a real sequential
- * number + saves the record to storage/invoices.json) are now two
- * distinct actions. Only "Generate Invoice" touches the counter file, so
- * simply tweaking a field and previewing again never burns an invoice
- * number.
+ * number + saves the record to storage/invoices.json) are two distinct
+ * actions. Only "Generate Invoice" touches the counter file, so simply
+ * tweaking a field and previewing again never burns an invoice number.
  *
  * Every value submitted is checked by validateInvoiceData() in
  * src/validation.php before the totals are trusted, and before an
@@ -43,6 +47,7 @@ $business = [
     'email'   => 'fazalabbas2002@gmail.com',
     'phone'   => '+92 300 1234567',
     'address' => 'Karachi, Pakistan',
+    'website' => 'fazalabbas.dev',
 ];
 
 $allowedStatuses = ['DRAFT', 'GENERATED', 'SENT', 'PAID', 'OVERDUE'];
@@ -63,10 +68,12 @@ if ($isPost) {
     // First visit: sensible defaults, zero items.
     $customer      = [];
     $invoiceFields = [
-        'date'     => date('Y-m-d'),
-        'due_date' => date('Y-m-d', strtotime('+14 days')),
-        'status'   => 'DRAFT',
-        'notes'    => '',
+        'date'             => date('Y-m-d'),
+        'due_date'         => date('Y-m-d', strtotime('+14 days')),
+        'status'           => 'DRAFT',
+        'notes'            => '',
+        'payment_terms'    => 'Payment due within 14 days of the invoice date.',
+        'terms_conditions' => 'Late payments may be subject to a rescheduling fee.',
     ];
     $settings = [
         'discount_type'  => 'percentage',
@@ -81,7 +88,10 @@ if ($isPost) {
 // read — this is deliberately not validation (Phase 5 rejects bad
 // values; this just prevents "undefined array key" notices).
 $customer      += ['name' => '', 'company' => '', 'email' => '', 'phone' => '', 'address' => ''];
-$invoiceFields += ['date' => '', 'due_date' => '', 'status' => 'DRAFT', 'notes' => ''];
+$invoiceFields += [
+    'date' => '', 'due_date' => '', 'status' => 'DRAFT', 'notes' => '',
+    'payment_terms' => '', 'terms_conditions' => '',
+];
 $settings      += ['discount_type' => 'percentage', 'discount_value' => '0', 'tax_percent' => '0'];
 
 // --- if / elseif: grow or shrink the items array ---------------------------
@@ -102,12 +112,14 @@ if ($itemCount === 0) {
 }
 
 $invoice = [
-    'date'     => $invoiceFields['date'],
-    'dueDate'  => $invoiceFields['due_date'],
-    'status'   => $invoiceFields['status'],
-    'notes'    => $invoiceFields['notes'],
-    'customer' => $customer,
-    'items'    => $items,
+    'date'            => $invoiceFields['date'],
+    'dueDate'         => $invoiceFields['due_date'],
+    'status'          => $invoiceFields['status'],
+    'notes'           => $invoiceFields['notes'],
+    'paymentTerms'    => $invoiceFields['payment_terms'],
+    'termsConditions' => $invoiceFields['terms_conditions'],
+    'customer'        => $customer,
+    'items'           => $items,
 ];
 
 // --- Validation --------------------------------------------------------
@@ -156,13 +168,15 @@ if ($action === 'generate' && !$hasErrors) {
     }
 
     saveInvoiceRecord($config['storage']['invoices_file'], [
-        'number'         => $generatedNumber,
-        'date'           => $invoice['date'],
-        'dueDate'        => $invoice['dueDate'],
-        'status'         => $invoice['status'],
-        'customer'       => $invoice['customer'],
-        'items'          => $itemsToSave,
-        'notes'          => $invoice['notes'],
+        'number'          => $generatedNumber,
+        'date'            => $invoice['date'],
+        'dueDate'         => $invoice['dueDate'],
+        'status'          => $invoice['status'],
+        'customer'        => $invoice['customer'],
+        'items'           => $itemsToSave,
+        'notes'           => $invoice['notes'],
+        'paymentTerms'    => $invoice['paymentTerms'],
+        'termsConditions' => $invoice['termsConditions'],
         'discountType'   => $settings['discount_type'],
         'discountValue'  => $discountValue,
         'taxPercent'     => $taxPercent,
@@ -191,6 +205,44 @@ function fieldError(array $errors, string $key): string
 function e(?string $value): string
 {
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * Maps an invoice status to a CSS modifier class for its badge. A
+ * second, distinct use of switch alongside calculateDiscount()'s —
+ * that one branches on discount type, this one on invoice status,
+ * exactly the two candidates the spec calls out for switch.
+ */
+function statusBadgeClass(string $status): string
+{
+    switch ($status) {
+        case 'DRAFT':
+            return 'badge--draft';
+        case 'GENERATED':
+            return 'badge--generated';
+        case 'SENT':
+            return 'badge--sent';
+        case 'PAID':
+            return 'badge--paid';
+        case 'OVERDUE':
+            return 'badge--overdue';
+        default:
+            return 'badge--draft';
+    }
+}
+
+/**
+ * Formats a Y-m-d date string for display (e.g. "05 September 2026"),
+ * falling back to the raw value for anything that isn't a valid date —
+ * which can happen on the very first "+ Add Item" click before the
+ * date field has been touched, since that action skips validation.
+ */
+function formatDisplayDate(string $value): string
+{
+    if (!isValidDate($value)) {
+        return $value !== '' ? $value : '—';
+    }
+    return date('d F Y', strtotime($value));
 }
 ?>
 <!DOCTYPE html>
@@ -346,10 +398,18 @@ function e(?string $value): string
                     </fieldset>
 
                     <fieldset class="field-group">
-                        <legend>Notes</legend>
+                        <legend>Notes &amp; Terms</legend>
                         <div class="field">
                             <label for="notes">Notes</label>
-                            <textarea id="notes" name="invoice[notes]" rows="3"><?= e($invoice['notes']) ?></textarea>
+                            <textarea id="notes" name="invoice[notes]" rows="2"><?= e($invoice['notes']) ?></textarea>
+                        </div>
+                        <div class="field">
+                            <label for="payment_terms">Payment Terms</label>
+                            <textarea id="payment_terms" name="invoice[payment_terms]" rows="2"><?= e($invoice['paymentTerms']) ?></textarea>
+                        </div>
+                        <div class="field">
+                            <label for="terms_conditions">Terms &amp; Conditions</label>
+                            <textarea id="terms_conditions" name="invoice[terms_conditions]" rows="2"><?= e($invoice['termsConditions']) ?></textarea>
                         </div>
                     </fieldset>
 
@@ -383,27 +443,44 @@ function e(?string $value): string
                         <?php endif; ?>
                     </div>
 
+                    <div class="paper__dates">
+                        <div>
+                            <div class="paper__label">Invoice Date</div>
+                            <?= e(formatDisplayDate($invoice['date'])) ?>
+                        </div>
+                        <div>
+                            <div class="paper__label">Due Date</div>
+                            <?= e(formatDisplayDate($invoice['dueDate'])) ?>
+                        </div>
+                        <div>
+                            <div class="paper__label">Status</div>
+                            <span class="badge <?= statusBadgeClass($invoice['status']) ?>"><?= e($invoice['status']) ?></span>
+                        </div>
+                    </div>
+
                     <div class="paper__parties">
                         <div>
                             <div class="paper__label">From</div>
                             <strong><?= e($business['name']) ?></strong>
+                            <?php if ($business['owner'] !== $business['name']): ?>
+                                <div><?= e($business['owner']) ?></div>
+                            <?php endif; ?>
+                            <?php if ($business['email'] !== ''): ?><div><?= e($business['email']) ?></div><?php endif; ?>
+                            <?php if ($business['phone'] !== ''): ?><div><?= e($business['phone']) ?></div><?php endif; ?>
+                            <?php if ($business['address'] !== ''): ?><div><?= e($business['address']) ?></div><?php endif; ?>
+                            <?php if ($business['website'] !== ''): ?><div><?= e($business['website']) ?></div><?php endif; ?>
                         </div>
                         <div>
                             <div class="paper__label">Bill To</div>
                             <strong><?= $invoice['customer']['name'] !== '' ? e($invoice['customer']['name']) : 'Your customer' ?></strong>
-                            <?php if ($invoice['customer']['company'] !== ''): ?>
-                                <div><?= e($invoice['customer']['company']) ?></div>
-                            <?php endif; ?>
+                            <?php if ($invoice['customer']['company'] !== ''): ?><div><?= e($invoice['customer']['company']) ?></div><?php endif; ?>
+                            <?php if ($invoice['customer']['email'] !== ''): ?><div><?= e($invoice['customer']['email']) ?></div><?php endif; ?>
+                            <?php if ($invoice['customer']['phone'] !== ''): ?><div><?= e($invoice['customer']['phone']) ?></div><?php endif; ?>
+                            <?php if ($invoice['customer']['address'] !== ''): ?><div><?= e($invoice['customer']['address']) ?></div><?php endif; ?>
                         </div>
                     </div>
 
-                    <p class="paper__meta">
-                        Status: <strong><?= e($invoice['status']) ?></strong>
-                        &middot; <?= e($itemsMessage) ?>
-                    </p>
-                    <?php if ($invoice['notes'] !== ''): ?>
-                        <p class="paper__meta">Notes: <?= e($invoice['notes']) ?></p>
-                    <?php endif; ?>
+                    <p class="paper__meta"><?= e($itemsMessage) ?></p>
 
                     <?php if ($hasErrors): ?>
                         <p class="paper__meta paper__meta--error">Fix the highlighted fields to see accurate totals.</p>
@@ -488,13 +565,36 @@ function e(?string $value): string
                                 <span><?= e(formatCurrency($grandTotal, $currencySymbol)) ?></span>
                             </div>
                         </div>
+
+                        <?php if ($invoice['notes'] !== '' || $invoice['paymentTerms'] !== '' || $invoice['termsConditions'] !== ''): ?>
+                            <div class="paper__footer">
+                                <?php if ($invoice['notes'] !== ''): ?>
+                                    <div>
+                                        <div class="paper__label">Notes</div>
+                                        <div><?= nl2br(e($invoice['notes'])) ?></div>
+                                    </div>
+                                <?php endif; ?>
+                                <?php if ($invoice['paymentTerms'] !== ''): ?>
+                                    <div>
+                                        <div class="paper__label">Payment Terms</div>
+                                        <div><?= nl2br(e($invoice['paymentTerms'])) ?></div>
+                                    </div>
+                                <?php endif; ?>
+                                <?php if ($invoice['termsConditions'] !== ''): ?>
+                                    <div>
+                                        <div class="paper__label">Terms &amp; Conditions</div>
+                                        <div><?= nl2br(e($invoice['termsConditions'])) ?></div>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
                     <?php endif; ?>
                 </div>
             </div>
         </section>
     </div>
 
-    <p class="footer-note">Phase 7 of 15 — invoice numbering and JSON persistence.</p>
+    <p class="footer-note">Phase 8 of 15 — the professional invoice preview.</p>
 </main>
 </body>
 </html>

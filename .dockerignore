@@ -1,7 +1,0 @@
-.git
-.gitignore
-README.md
-LICENSE
-storage/*.json
-public/uploads/*
-!public/uploads/.htaccess

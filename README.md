@@ -7,11 +7,10 @@ deliberately as a PHP-fundamentals learning project — and phased so that
 every language feature earns its place in a real application feature
 rather than being bolted on to check a box.
 
-> **Status: Phase 5 of 15 — server-side validation.** Bad input (empty
-> required fields, negative numbers, invalid percentages, malformed
-> email, impossible dates) is now rejected with field-level messages,
-> and every value you typed is preserved. This README, and the app
-> itself, will grow with each phase.
+> **Status: Phase 6 of 15 — foreach-driven invoice rendering.** The
+> preview now shows a real itemized table — description, qty, unit
+> price, and line total for every item — built with a `foreach` loop.
+> This README, and the app itself, will grow with each phase.
 
 ## Why a phased build?
 
@@ -95,7 +94,7 @@ on its own, from a plain PHP script, with no web server involved (see
 | Forms & `$_POST` | The whole invoice form — bracket-notation field names (`customer[name]`, `items[0][description]`) let PHP parse `$_POST` straight into the associative/multidimensional shapes from Phase 2 |
 | `array_push()` | Appends a blank row to `$items` when "+ Add Item" is submitted |
 | `array_pop()` | Removes the last row from `$items` when "− Remove Last Item" is submitted |
-| `foreach` | Rendering one editable input row per item; rendering the status `<select>` options list |
+| `foreach` | Rendering one editable input row per item (Phase 3); rendering the status `<select>` options list; rendering one **read-only, calculated** row per item in the invoice preview table (Phase 6) — a distinct pass from the editable one, over the same `$items` array |
 | Ternary operator | `$statusOption === $invoice['status'] ? 'selected' : ''` when marking the current status option |
 | Custom functions | `calculateLineTotal()`, `calculateSubtotal()`, `calculateDiscount()`, `calculateTax()`, `calculateGrandTotal()`, `formatCurrency()` in [`src/calculations.php`](src/calculations.php) |
 | Function arguments | Every calculation function takes its inputs as parameters — nothing reads `$_POST` or a global directly |
@@ -106,7 +105,7 @@ on its own, from a plain PHP script, with no web server involved (see
 | Arithmetic operators | `$quantity * $unitPrice`, `$subtotal - $discountAmount`, `$taxableAmount + $taxAmount` |
 | Logical operators | `$description === '' && $quantity === '' && $unitPrice === ''` (skip a fully-blank row); `(float)$settings['tax_percent'] < 0 \|\| (float)$settings['tax_percent'] > 100` |
 | `in_array()` | Validating `$invoice['status']` and `$settings['discount_type']` against allow-lists in [`src/validation.php`](src/validation.php); also `in_array($action, ['add_item', 'remove_item'], true)` decides whether to validate at all |
-| `continue` | Skipping a fully-blank item row during validation instead of flagging it as an error |
+| `continue` | Skipping a fully-blank item row during validation, and again while rendering the preview table, instead of showing an empty row |
 
 This table will keep growing through Phase 15 — a concept is only listed
 here once it's genuinely present in the code, not in anticipation of a
@@ -172,14 +171,36 @@ trigger these errors (only a real "Update Preview" submission does);
 fixing the fields and resubmitting clears every error and restores the
 Rs. 18,900.00 totals.
 
+The Phase 6 itemized table was verified against the spec's full worked
+example (Website Development 1×150,000 + Hosting 1×25,000 +
+Maintenance 6×10,000, 10% discount, 5% tax) directly in the browser —
+subtotal **Rs. 235,000.00**, discount **Rs. 23,500.00**, taxable amount
+**Rs. 211,500.00**, tax **Rs. 10,575.00**, grand total
+**Rs. 222,075.00**, matching by hand calculation. A blank row added
+with "+ Add Item" correctly counts toward the builder's "N line
+item(s)" message but is skipped by `continue` in the rendered table,
+so it never shows up as an empty row or breaks the totals.
+
+**Bug found and fixed during this phase:** at mobile width, the item
+table (which needs a minimum width to stay readable) was blowing out
+the entire page horizontally instead of scrolling inside its own
+container. The cause was `grid-template-columns: 1fr` in the mobile
+media query — a bare `1fr` track's implicit minimum width is its
+content's *min-content* size, not zero, so the table's `min-width` was
+winning against the viewport. Fixed by changing it to
+`minmax(0, 1fr)`, which lets the track shrink below its content's
+natural size and defers to the table's own `overflow-x: auto`
+wrapper. Re-verified with `document.body.scrollWidth ===
+window.innerWidth` at 375px, not just a screenshot.
+
 ## Development Phases
 
 1. Foundation — project structure, config, design system, app shell
 2. Invoice data structure (associative/multidimensional arrays)
 3. Invoice form (`$_POST`, line items, add/remove)
 4. PHP calculation engine (functions, arguments, return values)
-5. **Server-side validation** *(this phase)*
-6. `foreach`-driven invoice rendering
+5. Server-side validation
+6. **`foreach`-driven invoice rendering** *(this phase)*
 7. Invoice numbering + JSON persistence
 8. Professional invoice preview
 9. Print system

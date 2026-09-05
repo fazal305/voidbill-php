@@ -1,8 +1,14 @@
 <?php
 /**
- * VOIDBILL — Phase 5: server-side validation.
+ * VOIDBILL — Phase 6: foreach-driven invoice rendering.
  *
- * Every value submitted is now checked by validateInvoiceData() in
+ * The invoice preview now renders a real, read-only itemized table —
+ * one row per line item, built with a foreach loop that reuses
+ * calculateLineTotal() to show each row's own total (a second, distinct
+ * use of that function alongside calculateSubtotal()'s internal loop
+ * that sums everything).
+ *
+ * Every value submitted is checked by validateInvoiceData() in
  * src/validation.php before the totals are trusted. Validation only
  * runs when the user actually tries to update the invoice (action ===
  * "update") — adding or removing a blank item row shouldn't suddenly
@@ -343,7 +349,63 @@ function e(?string $value): string
                     <?php if ($hasErrors): ?>
                         <p class="paper__meta paper__meta--error">Fix the highlighted fields to see accurate totals.</p>
                     <?php else: ?>
-                        <p class="paper__meta">Itemized rows arrive in Phase 6 — these totals are already the real, server-calculated numbers.</p>
+                        <?php
+                        // --- foreach: render one read-only row per item -----------------
+                        // A different job from Phase 3's foreach (which rendered editable
+                        // <input> fields in the builder). This one is read-only, skips
+                        // any still-blank row with continue, and calls
+                        // calculateLineTotal() again per row — the same function
+                        // calculateSubtotal() already used internally, reused here to
+                        // display each row's own total rather than just the sum.
+                        $hasRenderableItems = false;
+                        foreach ($items as $item) {
+                            $description = trim((string)($item['description'] ?? ''));
+                            $quantity    = $item['quantity'] ?? '';
+                            $unitPrice   = $item['unitPrice'] ?? '';
+                            if ($description === '' && $quantity === '' && $unitPrice === '') {
+                                continue;
+                            }
+                            $hasRenderableItems = true;
+                            break;
+                        }
+                        ?>
+
+                        <?php if ($hasRenderableItems): ?>
+                            <div class="table-scroll">
+                                <table class="paper-items">
+                                    <thead>
+                                    <tr>
+                                        <th>Description</th>
+                                        <th class="num">Qty</th>
+                                        <th class="num">Unit Price</th>
+                                        <th class="num">Total</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <?php foreach ($items as $item):
+                                        $description = trim((string)($item['description'] ?? ''));
+                                        $quantity    = $item['quantity'] ?? '';
+                                        $unitPrice   = $item['unitPrice'] ?? '';
+
+                                        if ($description === '' && $quantity === '' && $unitPrice === '') {
+                                            continue; // an unfilled "+ Add Item" row — nothing to render yet
+                                        }
+
+                                        $lineTotal = calculateLineTotal((float)$quantity, (float)$unitPrice);
+                                        ?>
+                                        <tr>
+                                            <td><?= e($description) ?></td>
+                                            <td class="num"><?= e((string)$quantity) ?></td>
+                                            <td class="num"><?= e(formatCurrency((float)$unitPrice, $currencySymbol)) ?></td>
+                                            <td class="num"><?= e(formatCurrency($lineTotal, $currencySymbol)) ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php else: ?>
+                            <p class="paper__meta">No invoice items yet.</p>
+                        <?php endif; ?>
 
                         <div class="paper__totals">
                             <div class="paper__totals-row">
@@ -373,7 +435,7 @@ function e(?string $value): string
         </section>
     </div>
 
-    <p class="footer-note">Phase 5 of 15 — server-side validation.</p>
+    <p class="footer-note">Phase 6 of 15 — foreach-driven invoice rendering.</p>
 </main>
 </body>
 </html>

@@ -80,7 +80,11 @@ body {
 
 @media (max-width: 900px) {
     .workspace {
-        grid-template-columns: 1fr;
+        /* minmax(0, 1fr), not a bare 1fr — a plain 1fr track's implicit
+           minimum is its content's min-content width, so a wide child
+           (like the item table below) would blow out the whole page
+           instead of scrolling inside its own .table-scroll wrapper. */
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
@@ -168,6 +172,51 @@ body {
     font-size: 12px;
     color: var(--paper-muted);
     margin: var(--space-2) 0 0;
+}
+
+.table-scroll {
+    overflow-x: auto;
+    margin-top: var(--space-4);
+}
+
+table.paper-items {
+    width: 100%;
+    min-width: 420px;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+table.paper-items thead th {
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--paper-muted);
+    border-bottom: 1px solid var(--paper-border);
+    padding: 0 var(--space-2) var(--space-2) 0;
+    white-space: nowrap;
+}
+
+table.paper-items th.num,
+table.paper-items td.num {
+    text-align: right;
+    white-space: nowrap;
+}
+
+table.paper-items tbody td {
+    padding: var(--space-2) var(--space-2) var(--space-2) 0;
+    border-bottom: 1px solid var(--paper-border);
+}
+
+table.paper-items td:first-child,
+table.paper-items th:first-child {
+    padding-right: var(--space-4);
+}
+
+@media (max-width: 480px) {
+    .paper {
+        padding: var(--space-4);
+    }
 }
 
 .paper__totals {

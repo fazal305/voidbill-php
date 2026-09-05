@@ -132,6 +132,20 @@ body {
     padding: var(--space-6);
 }
 
+.paper__header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--space-3);
+}
+
+.paper__number {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
 .paper__brand {
     font-family: var(--font-mono);
     font-weight: 700;
@@ -333,6 +347,12 @@ legend {
     color: #ffb3b6;
 }
 
+.alert--success {
+    background: rgba(78, 225, 160, 0.08);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
 .field input,
 .field select,
 .field textarea {
@@ -428,4 +448,16 @@ legend {
 
 .btn--block {
     width: 100%;
+}
+
+.form-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+}
+
+@media (max-width: 480px) {
+    .form-actions {
+        grid-template-columns: 1fr;
+    }
 }

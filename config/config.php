@@ -18,4 +18,10 @@ return [
     'env' => 'development',
 
     'currency_symbol' => 'Rs.',
+    'invoice_prefix'  => 'INV',
+
+    'storage' => [
+        'counter_file'   => __DIR__ . '/../storage/counter.json',
+        'invoices_file'  => __DIR__ . '/../storage/invoices.json',
+    ],
 ];

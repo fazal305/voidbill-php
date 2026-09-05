@@ -1,18 +1,17 @@
 <?php
 /**
- * VOIDBILL — Phase 6: foreach-driven invoice rendering.
+ * VOIDBILL — Phase 7: invoice numbering and JSON persistence.
  *
- * The invoice preview now renders a real, read-only itemized table —
- * one row per line item, built with a foreach loop that reuses
- * calculateLineTotal() to show each row's own total (a second, distinct
- * use of that function alongside calculateSubtotal()'s internal loop
- * that sums everything).
+ * "Update Preview" (validates + calculates, doesn't commit anything) and
+ * "Generate Invoice" (validates + calculates + assigns a real sequential
+ * number + saves the record to storage/invoices.json) are now two
+ * distinct actions. Only "Generate Invoice" touches the counter file, so
+ * simply tweaking a field and previewing again never burns an invoice
+ * number.
  *
  * Every value submitted is checked by validateInvoiceData() in
- * src/validation.php before the totals are trusted. Validation only
- * runs when the user actually tries to update the invoice (action ===
- * "update") — adding or removing a blank item row shouldn't suddenly
- * flag every other field as invalid.
+ * src/validation.php before the totals are trusted, and before an
+ * invoice is allowed to be generated at all.
  *
  * There is no JavaScript yet. "+ Add Item" and "- Remove Last Item"
  * are ordinary submit buttons — the whole form (including every value
@@ -27,6 +26,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../src/calculations.php';
 require __DIR__ . '/../src/validation.php';
+require __DIR__ . '/../src/persistence.php';
 
 $config = require __DIR__ . '/../config/config.php';
 
@@ -111,9 +111,10 @@ $invoice = [
 ];
 
 // --- Validation --------------------------------------------------------
-// Only validate on a real "Update Preview" submission — not on the
-// structural add_item/remove_item actions, and not on the first GET.
-$shouldValidate = $isPost && !in_array($action, ['add_item', 'remove_item'], true);
+// Only validate on a real "Update Preview" or "Generate Invoice"
+// submission — not on the structural add_item/remove_item actions, and
+// not on the first GET.
+$shouldValidate = $isPost && in_array($action, ['update', 'generate'], true);
 $errors         = $shouldValidate ? validateInvoiceData($customer, $invoiceFields, $settings, $items) : [];
 $hasErrors      = count($errors) > 0;
 
@@ -131,6 +132,48 @@ $taxAmount      = calculateTax($taxableAmount, $taxPercent);
 $grandTotal     = calculateGrandTotal($taxableAmount, $taxAmount);
 
 $currencySymbol = $config['currency_symbol'];
+
+// --- Invoice numbering & persistence ---------------------------------------
+// Only "Generate Invoice" reaches this — "Update Preview" recalculates
+// and re-validates every time, but never burns a number or writes a
+// record, so a user can safely tweak fields and preview repeatedly.
+$generatedNumber = null;
+
+if ($action === 'generate' && !$hasErrors) {
+    $generatedNumber = generateInvoiceNumber($config['storage']['counter_file'], $config['invoice_prefix']);
+
+    // Only save rows the user actually filled in — an untouched blank
+    // "+ Add Item" row shouldn't end up in permanent storage.
+    $itemsToSave = [];
+    foreach ($items as $item) {
+        $description = trim((string)($item['description'] ?? ''));
+        $quantity    = $item['quantity'] ?? '';
+        $unitPrice   = $item['unitPrice'] ?? '';
+        if ($description === '' && $quantity === '' && $unitPrice === '') {
+            continue;
+        }
+        $itemsToSave[] = $item;
+    }
+
+    saveInvoiceRecord($config['storage']['invoices_file'], [
+        'number'         => $generatedNumber,
+        'date'           => $invoice['date'],
+        'dueDate'        => $invoice['dueDate'],
+        'status'         => $invoice['status'],
+        'customer'       => $invoice['customer'],
+        'items'          => $itemsToSave,
+        'notes'          => $invoice['notes'],
+        'discountType'   => $settings['discount_type'],
+        'discountValue'  => $discountValue,
+        'taxPercent'     => $taxPercent,
+        'subtotal'       => $subtotal,
+        'discountAmount' => $discountAmount,
+        'taxableAmount'  => $taxableAmount,
+        'taxAmount'      => $taxAmount,
+        'grandTotal'     => $grandTotal,
+        'generatedAt'    => date('Y-m-d H:i:s'),
+    ]);
+}
 
 /**
  * Renders an error message under a field, if one exists for $key.
@@ -310,7 +353,10 @@ function e(?string $value): string
                         </div>
                     </fieldset>
 
-                    <button type="submit" name="action" value="update" class="btn btn--primary btn--block">Update Preview</button>
+                    <div class="form-actions">
+                        <button type="submit" name="action" value="update" class="btn btn--block">Update Preview</button>
+                        <button type="submit" name="action" value="generate" class="btn btn--primary btn--block">Generate Invoice</button>
+                    </div>
                 </form>
             </div>
         </section>
@@ -320,9 +366,22 @@ function e(?string $value): string
                 <h2 class="panel__title">Invoice Preview</h2>
             </div>
             <div class="panel__body">
+                <?php if ($generatedNumber !== null): ?>
+                    <div class="alert alert--success" role="status">
+                        Invoice <strong><?= e($generatedNumber) ?></strong> generated and saved.
+                    </div>
+                <?php endif; ?>
+
                 <div class="paper">
-                    <div class="paper__brand">VOID<span>BILL</span></div>
-                    <div class="paper__tagline"><?= e($tagline) ?></div>
+                    <div class="paper__header-row">
+                        <div>
+                            <div class="paper__brand">VOID<span>BILL</span></div>
+                            <div class="paper__tagline"><?= e($tagline) ?></div>
+                        </div>
+                        <?php if ($generatedNumber !== null): ?>
+                            <div class="paper__number"><?= e($generatedNumber) ?></div>
+                        <?php endif; ?>
+                    </div>
 
                     <div class="paper__parties">
                         <div>
@@ -435,7 +494,7 @@ function e(?string $value): string
         </section>
     </div>
 
-    <p class="footer-note">Phase 6 of 15 — foreach-driven invoice rendering.</p>
+    <p class="footer-note">Phase 7 of 15 — invoice numbering and JSON persistence.</p>
 </main>
 </body>
 </html>

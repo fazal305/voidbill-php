@@ -7,10 +7,12 @@ deliberately as a PHP-fundamentals learning project — and phased so that
 every language feature earns its place in a real application feature
 rather than being bolted on to check a box.
 
-> **Status: Phase 6 of 15 — foreach-driven invoice rendering.** The
-> preview now shows a real itemized table — description, qty, unit
-> price, and line total for every item — built with a `foreach` loop.
-> This README, and the app itself, will grow with each phase.
+> **Status: Phase 7 of 15 — invoice numbering and JSON persistence.**
+> "Generate Invoice" now assigns a real sequential number
+> (`INV-2026-0001`, `-0002`, ...) and saves the finished invoice to a
+> locked JSON file — "Update Preview" still just calculates and
+> validates, without burning a number. This README, and the app itself,
+> will grow with each phase.
 
 ## Why a phased build?
 
@@ -24,7 +26,8 @@ actually needed. See [Development Phases](#development-phases) below.
 
 ## Requirements
 
-- PHP 8.0 or later (developed and tested against PHP 8.4)
+- PHP 8.1 or later (developed and tested against PHP 8.4 — `array_is_list()`,
+  used in `src/persistence.php`, needs 8.1+)
 
 ## Running Locally
 
@@ -47,14 +50,16 @@ voidbill-php/
 │   ├── calculations.php         calculateLineTotal(), calculateSubtotal(),
 │   │                             calculateDiscount(), calculateTax(),
 │   │                             calculateGrandTotal(), formatCurrency()
-│   └── validation.php           validateInvoiceData(), isValidDate()
+│   ├── validation.php           validateInvoiceData(), isValidDate()
+│   └── persistence.php          generateInvoiceNumber(), saveInvoiceRecord(),
+│                                 loadInvoices()
+├── storage/                     counter.json, invoices.json (gitignored —
+│                                 runtime data, regenerated on first use)
 ├── config/
-│   └── config.php               App name, tagline, currency symbol, env
+│   └── config.php               App name, tagline, currency symbol, env,
+│                                 storage file paths
 ├── README.md, LICENSE, .gitignore
 ```
-
-This will grow: `storage/` arrives when persistence is introduced in
-Phase 7.
 
 ## Calculation Flow
 
@@ -78,6 +83,45 @@ plain values as parameters and returns a plain value — none of them read
 `calculateSubtotal([['quantity' => 2, 'unitPrice' => 10000]])` testable
 on its own, from a plain PHP script, with no web server involved (see
 [Testing](#testing-performed-so-far) below).
+
+## Persistence
+
+There is no database. `src/persistence.php` reads and writes two plain
+JSON files under `storage/`:
+
+- **`counter.json`** — `{"2026": 2}` — the last sequence number issued
+  per year. `generateInvoiceNumber()` opens it, takes an exclusive lock
+  (`flock(LOCK_EX)`), reads the current count, increments it, writes it
+  back, and only then releases the lock — so two invoices generated at
+  the same instant can never receive the same number.
+- **`invoices.json`** — a JSON array of every generated invoice, used by
+  the dashboard/history in Phase 10.
+
+**This is not a database**, and the README says so deliberately rather
+than pretending otherwise: there's no query language, no indexes, and
+every save reads the *entire* file into memory, appends one record, and
+rewrites the whole thing. That's a perfectly reasonable tradeoff for a
+single user generating a personal handful of invoices; it would not
+scale to many concurrent users. A missing file is treated as "no
+invoices yet," and a corrupted/malformed file is treated as empty
+rather than crashing the app (though `saveInvoiceRecord()` refuses to
+*write* into a file that already contains something other than a plain
+list, rather than silently destroying whatever was there).
+
+### Why not a `static` variable for the counter?
+
+A `static $counter = 0;` inside a function remembers its value between
+*calls* — but only within one running PHP process. Every request to
+this app (via `php -S`, or a PHP-FPM worker in production) is either a
+brand-new process or may be handled by a different worker than the
+request before it, so a static variable's "memory" resets constantly —
+in practice, it would hand out `INV-2026-0001` on almost every request.
+The only way to remember a count *across separate HTTP requests* is
+something that outlives the PHP process itself: a file (what
+`generateInvoiceNumber()` uses), a database, or a cache like Redis.
+This is exactly the distinction between *variable scope within a
+script* and *state across requests* — two different problems that look
+similar until you hit this exact bug.
 
 ## PHP Concepts Demonstrated (so far)
 
@@ -105,7 +149,11 @@ on its own, from a plain PHP script, with no web server involved (see
 | Arithmetic operators | `$quantity * $unitPrice`, `$subtotal - $discountAmount`, `$taxableAmount + $taxAmount` |
 | Logical operators | `$description === '' && $quantity === '' && $unitPrice === ''` (skip a fully-blank row); `(float)$settings['tax_percent'] < 0 \|\| (float)$settings['tax_percent'] > 100` |
 | `in_array()` | Validating `$invoice['status']` and `$settings['discount_type']` against allow-lists in [`src/validation.php`](src/validation.php); also `in_array($action, ['add_item', 'remove_item'], true)` decides whether to validate at all |
-| `continue` | Skipping a fully-blank item row during validation, and again while rendering the preview table, instead of showing an empty row |
+| `continue` | Skipping a fully-blank item row during validation, while rendering the preview table, and while filtering rows before they're saved |
+| File handling & locking | `generateInvoiceNumber()` / `saveInvoiceRecord()` in [`src/persistence.php`](src/persistence.php) — `fopen('c+')`, `flock()`, read/write through the same handle, `fclose()` |
+| `json_encode()` / `json_decode()` | Reading and writing `storage/counter.json` and `storage/invoices.json` |
+| `sprintf()` | Formatting the invoice number as `INV-2026-0001` with zero-padding (`%04d`) |
+| Increment operator | `$sequence++;` builds each new invoice number in [`src/persistence.php`](src/persistence.php) |
 
 This table will keep growing through Phase 15 — a concept is only listed
 here once it's genuinely present in the code, not in anticipation of a
@@ -193,6 +241,26 @@ natural size and defers to the table's own `overflow-x: auto`
 wrapper. Re-verified with `document.body.scrollWidth ===
 window.innerWidth` at 375px, not just a screenshot.
 
+`src/persistence.php` was checked with a standalone script before ever
+touching the browser:
+
+| Case | Result |
+|---|---|
+| Three sequential calls | `INV-2026-0001`, `-0002`, `-0003` — no gaps, no repeats |
+| Malformed JSON already in `counter.json` | Treated as empty; resumes cleanly from 0001 rather than crashing |
+| Save + load two invoice records | Both round-tripped intact, in order |
+| Load from a missing file | Returns `[]`, not an error |
+| Load from a file containing a JSON *object* instead of a list | Returns `[]` (defensive read) |
+| Save into that same corrupted file | Throws `RuntimeException` rather than silently overwriting whatever was there |
+
+Then re-confirmed live in the browser: generating one invoice produced
+`INV-2026-0001` with every submitted value correctly written to
+`storage/invoices.json` (verified by reading the actual file, not just
+trusting the UI); clicking "Update Preview" twice in a row left
+`counter.json` completely untouched; generating a second, different
+invoice produced `INV-2026-0002` with no gap or collision. No console
+errors; no mobile overflow with the new two-button layout.
+
 ## Development Phases
 
 1. Foundation — project structure, config, design system, app shell
@@ -200,8 +268,8 @@ window.innerWidth` at 375px, not just a screenshot.
 3. Invoice form (`$_POST`, line items, add/remove)
 4. PHP calculation engine (functions, arguments, return values)
 5. Server-side validation
-6. **`foreach`-driven invoice rendering** *(this phase)*
-7. Invoice numbering + JSON persistence
+6. `foreach`-driven invoice rendering
+7. **Invoice numbering + JSON persistence** *(this phase)*
 8. Professional invoice preview
 9. Print system
 10. Dashboard / invoice history

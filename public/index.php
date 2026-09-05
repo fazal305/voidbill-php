@@ -1,10 +1,15 @@
 <?php
 /**
- * VOIDBILL — Phase 9: the print system.
+ * VOIDBILL — Phase 11: UX polish.
  *
- * "Print Invoice" calls the browser's native window.print() — the one
- * unavoidable line of JavaScript before Phase 11 formally introduces a
- * script file, since there's no CSS-only way to open the print dialog.
+ * assets/js/app.js now adds: draft autosave/recovery via localStorage
+ * (a UX convenience only — the saved invoice data in storage/ remains
+ * the only source of truth), toast confirmations for restoring/
+ * discarding a draft, a Ctrl/Cmd+Enter shortcut for Generate Invoice,
+ * and a loading state that disables the submit buttons the instant one
+ * is clicked, so an impatient double-click can't fire two submissions.
+ *
+ * "Print Invoice" calls the browser's native window.print(). Its
  * assets/css/print.css (loaded only for the print media type) hides
  * everything except the invoice document itself, so what prints is a
  * clean A4 page, not a screenshot of the dark app shell.
@@ -293,7 +298,7 @@ function formatDisplayDate(string $value): string
                     </div>
                 <?php endif; ?>
 
-                <form method="post" action="index.php">
+                <form method="post" action="index.php" id="invoice-form" data-is-post="<?= $isPost ? '1' : '0' ?>" data-generated="<?= $generatedNumber !== null ? e($generatedNumber) : '' ?>">
                     <fieldset class="field-group">
                         <legend>Customer</legend>
                         <div class="field <?= isset($errors['customer_name']) ? 'has-error' : '' ?>">
@@ -607,7 +612,11 @@ function formatDisplayDate(string $value): string
         </section>
     </div>
 
-    <p class="footer-note no-print">Phase 9 of 15 — the print system.</p>
+    <p class="footer-note no-print">Phase 11 of 15 — UX polish.</p>
 </main>
+
+<div class="toast-region no-print" id="toast-region" aria-live="polite"></div>
+
+<script src="assets/js/app.js"></script>
 </body>
 </html>

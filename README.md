@@ -7,10 +7,11 @@ deliberately as a PHP-fundamentals learning project — and phased so that
 every language feature earns its place in a real application feature
 rather than being bolted on to check a box.
 
-> **Status: Phase 10 of 15 — dashboard / invoice history.** A second
-> page, `dashboard.php`, now summarizes every invoice ever generated:
-> total count, total value, paid vs outstanding, and the 5 most recent.
-> This README, and the app itself, will grow with each phase.
+> **Status: Phase 11 of 15 — UX polish.** The app's first JavaScript
+> file adds draft autosave/recovery, toast confirmations, a
+> Ctrl/Cmd+Enter shortcut, and duplicate-submission prevention — none
+> of it touches a calculation or a validation rule. This README, and
+> the app itself, will grow with each phase.
 
 ## Why a phased build?
 
@@ -42,10 +43,13 @@ voidbill-php/
 ├── public/
 │   ├── index.php              Form, $_POST handling, and rendering
 │   ├── dashboard.php           Invoice history + stats (read-only)
-│   └── assets/css/
-│       ├── variables.css       Design tokens (colors, spacing, type)
-│       ├── app.css             Shell + form + paper layout
-│       └── print.css           A4 print layout (loaded only for print)
+│   └── assets/
+│       ├── css/
+│       │   ├── variables.css   Design tokens (colors, spacing, type)
+│       │   ├── app.css         Shell + form + paper layout
+│       │   └── print.css       A4 print layout (loaded only for print)
+│       └── js/
+│           └── app.js          Draft autosave, toasts, shortcut, loading state
 ├── src/
 │   ├── calculations.php         calculateLineTotal(), calculateSubtotal(),
 │   │                             calculateDiscount(), calculateTax(),
@@ -143,6 +147,59 @@ it never affects normal browsing. When printing, it:
 
 What's left after all that is just the invoice document, on a plain
 white background, exactly as it looks in the on-screen preview.
+
+## UX Polish
+
+[`public/assets/js/app.js`](public/assets/js/app.js) is the app's
+first JavaScript file. Everything in it is a convenience layer on top
+of the server-rendered form — nothing here calculates a total,
+validates a field, or decides an invoice number; all of that stays in
+PHP, exactly as every earlier phase established.
+
+- **Draft autosave/recovery.** Every keystroke in a scalar field
+  (customer/invoice/settings — not the item rows; see below) is saved
+  to `localStorage`. Landing on a fresh, empty form when a saved draft
+  exists shows a "Draft recovered" banner with **Restore**/**Discard**
+  buttons. Successfully generating an invoice clears the draft
+  automatically, since it's no longer "unfinished" once it's been
+  generated. None of this touches `storage/` — it's purely a
+  same-browser, same-device convenience, exactly as the spec asked for.
+- **Toasts** confirm the two JS-only actions (Restore/Discard) that
+  don't already get a server-rendered banner.
+- **Ctrl/Cmd+Enter** submits "Generate Invoice" from anywhere on the
+  page.
+- **Duplicate-submission prevention**: every submit button is disabled
+  the moment the form is submitted, so an impatient double-click can't
+  fire two requests.
+
+### Why item rows aren't part of draft recovery
+
+Autosave only covers the scalar fields, not the item table. Item rows
+are rendered entirely server-side — there's no client-side template
+for "one item row" the way there is for, say, a toast. Restoring a
+saved *count* of items would mean either duplicating that server
+template in JavaScript or building a client-side rendering system this
+project doesn't otherwise have. The item data itself was never at
+risk, though: every Add/Remove/Update click already round-trips
+through the server and back, which is what actually matters. Full
+JavaScript-driven item management (add/remove without a page reload,
+and by extension item-level autosave) is exactly the kind of thing
+that exists on the [`v1-full-featured`](../../tree/v1-full-featured)
+branch, but is out of scope for this deliberately restrained rebuild.
+
+### A real bug this phase caught
+
+The first version of the duplicate-submission guard disabled every
+submit button *synchronously inside the form's own `submit` event*.
+That's a classic trap: browsers exclude `disabled` controls from the
+form data they serialize, and that exclusion is evaluated right after
+synchronous submit handlers finish — so disabling the very button that
+was just clicked stripped its `name="action"` value before the request
+was built. The visible symptom: clicking "+ Add Item" silently stopped
+adding rows. This wasn't something a code read caught — it only showed
+up by actually clicking the button in the browser and noticing nothing
+happened. Fixed by deferring the disable with `setTimeout(fn, 0)`, so
+the browser finishes reading the form first.
 
 ## PHP Concepts Demonstrated (so far)
 
@@ -343,6 +400,29 @@ and a "no invoices yet" message rather than crashing on a missing
 file. No console errors; no mobile overflow (the nav wraps under 640px
 using the same technique already applied on the main page).
 
+Phase 11's UX layer was tested live in the browser, not just read:
+typed a customer name, confirmed it appeared in `localStorage`
+immediately; reloaded the page fresh and got the "Draft recovered"
+banner; clicked Restore and confirmed the field was refilled and a
+toast appeared; on a second pass, clicked Discard and confirmed the
+draft was removed and a different toast appeared. Confirmed the
+Ctrl+Enter shortcut actually invokes the Generate Invoice button (via
+a synthetic `KeyboardEvent`, since the browser-automation tool's own
+key-combo delivery didn't reliably reach the page — worth noting since
+it could easily have been mistaken for an app bug) and that the
+resulting invoice carried the exact values that were typed. Confirmed
+the draft is cleared automatically after a successful generation.
+
+**Bug found and fixed here:** disabling submit buttons synchronously
+inside the form's `submit` handler silently broke "+ Add Item" — see
+[A real bug this phase caught](#a-real-bug-this-phase-caught) above
+for the full explanation. Caught by clicking the button and watching
+nothing happen, confirmed the fix by clicking it again afterward and
+watching the item count actually increase, and re-ran the loading
+state test (submit intercepted with `preventDefault()`, checked
+`button.disabled` after a tick) to confirm the fix didn't regress the
+original feature.
+
 ## Development Phases
 
 1. Foundation — project structure, config, design system, app shell
@@ -354,8 +434,8 @@ using the same technique already applied on the main page).
 7. Invoice numbering + JSON persistence
 8. Professional invoice preview
 9. Print system
-10. **Dashboard / invoice history** *(this phase)*
-11. UX polish (autosave, toasts, shortcuts)
+10. Dashboard / invoice history
+11. **UX polish (autosave, toasts, shortcuts)** *(this phase)*
 12. UI/UX audit
 13. Testing
 14. Documentation

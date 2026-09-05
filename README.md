@@ -7,11 +7,11 @@ deliberately as a PHP-fundamentals learning project — and phased so that
 every language feature earns its place in a real application feature
 rather than being bolted on to check a box.
 
-> **Status: Phase 11 of 15 — UX polish.** The app's first JavaScript
-> file adds draft autosave/recovery, toast confirmations, a
-> Ctrl/Cmd+Enter shortcut, and duplicate-submission prevention — none
-> of it touches a calculation or a validation rule. This README, and
-> the app itself, will grow with each phase.
+> **Status: Phase 12 of 15 — UI/UX audit.** A design-skill-backed pass
+> found and fixed three real accessibility gaps: error messages weren't
+> associated with their fields, item-row inputs had no accessible
+> labels at all, and the main page had no `<h1>`. This README, and the
+> app itself, will grow with each phase.
 
 ## Why a phased build?
 
@@ -200,6 +200,58 @@ adding rows. This wasn't something a code read caught — it only showed
 up by actually clicking the button in the browser and noticing nothing
 happened. Fixed by deferring the disable with `setTimeout(fn, 0)`, so
 the browser finishes reading the form first.
+
+## UI/UX Audit
+
+This phase didn't add features — it audited what already existed,
+using the project's UI/UX design skill (a searchable database of
+accessibility, layout, and style guidance) plus a manual pass over
+both pages. Three real, fixable issues were found and corrected in
+[`public/index.php`](public/index.php):
+
+1. **Field-level errors weren't associated with their inputs.** Every
+   validation error rendered as a `<p class="field-error">` next to
+   its field, but nothing connected the two programmatically — a
+   screen reader user tabbing to a flagged field would hear the label
+   and nothing else. Fixed with a new `describedBy()` helper that
+   outputs `aria-describedby="fieldname-error"` on the input exactly
+   when that field has an error, matching the field-error's `id`.
+2. **Item-row inputs had no accessible label at all.** The
+   description/quantity/unit-price inputs relied entirely on the
+   `.items__head` column headings above them for meaning — headings
+   that aren't programmatically tied to the inputs below them. Fixed
+   by adding a real `<label>` per input, visually hidden with a new
+   `.sr-only` utility class (clipped to 1×1px, not `display: none`,
+   so it stays in the accessibility tree) since the visible column
+   headings already communicate the same thing sighted users need.
+3. **The main page had no `<h1>`.** `index.php` jumped straight to two
+   `<h2>`s ("Invoice Builder", "Invoice Preview") with nothing above
+   them — an improper heading hierarchy, and a page with no clear
+   top-level landmark for assistive tech. Fixed by adding a page
+   header (`<h1>New Invoice</h1>` + a one-line description), matching
+   the pattern `dashboard.php` already used.
+
+All three were verified by actually reading the rendered
+`aria-describedby`/`id` pairs and the accessibility tree via
+JavaScript in the browser — not just reading the source and assuming
+it was correct.
+
+**Checked and found already sound:** color contrast (muted text
+against both the dark shell and the paper background comfortably
+clears 4.5:1; status-badge color pairs follow well-established
+accessible light-background pairings), keyboard focus indicators
+(`:focus-visible` is defined globally and was never overridden),
+touch-target sizing (every button clears the 24px WCAG minimum for
+web), and `prefers-reduced-motion` support (already respected by the
+toast and item-row animations).
+
+**Checked and deliberately not changed:** a style search for
+"developer tool / dark / technical" surfaced cyberpunk and HUD-style
+presets built around multiple neon colors, glow effects, and scanline
+overlays. VOIDBILL intentionally uses **one** controlled accent color
+and no glow/scanline effects — a deliberate choice from the original
+design brief to read as a serious utility tool rather than a sci-fi
+dashboard, so those suggestions were noted and not applied.
 
 ## PHP Concepts Demonstrated (so far)
 
@@ -435,8 +487,8 @@ original feature.
 8. Professional invoice preview
 9. Print system
 10. Dashboard / invoice history
-11. **UX polish (autosave, toasts, shortcuts)** *(this phase)*
-12. UI/UX audit
+11. UX polish (autosave, toasts, shortcuts)
+12. **UI/UX audit** *(this phase)*
 13. Testing
 14. Documentation
 15. GitHub finalization

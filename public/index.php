@@ -211,7 +211,17 @@ function fieldError(array $errors, string $key): string
     if (!isset($errors[$key])) {
         return '';
     }
-    return '<p class="field-error">' . e($errors[$key]) . '</p>';
+    return '<p class="field-error" id="' . e($key) . '-error">' . e($errors[$key]) . '</p>';
+}
+
+/**
+ * Outputs an aria-describedby attribute pointing at fieldError()'s id,
+ * but only when that field actually has an error — screen readers
+ * shouldn't be told to look at a description that doesn't exist.
+ */
+function describedBy(array $errors, string $key): string
+{
+    return isset($errors[$key]) ? ' aria-describedby="' . e($key) . '-error"' : '';
 }
 
 function e(?string $value): string
@@ -286,6 +296,13 @@ function formatDisplayDate(string $value): string
 </header>
 
 <main id="main" class="shell">
+    <div class="page-header">
+        <div>
+            <h1>New Invoice</h1>
+            <p>Build, validate, and generate a professional invoice.</p>
+        </div>
+    </div>
+
     <div class="workspace">
         <section class="panel" aria-label="Invoice builder">
             <div class="panel__header">
@@ -303,7 +320,7 @@ function formatDisplayDate(string $value): string
                         <legend>Customer</legend>
                         <div class="field <?= isset($errors['customer_name']) ? 'has-error' : '' ?>">
                             <label for="customer_name">Customer / Client Name</label>
-                            <input type="text" id="customer_name" name="customer[name]" value="<?= e($customer['name']) ?>">
+                            <input type="text" id="customer_name" name="customer[name]" value="<?= e($customer['name']) ?>"<?= describedBy($errors, 'customer_name') ?>>
                             <?= fieldError($errors, 'customer_name') ?>
                         </div>
                         <div class="field-row">
@@ -313,7 +330,7 @@ function formatDisplayDate(string $value): string
                             </div>
                             <div class="field <?= isset($errors['customer_email']) ? 'has-error' : '' ?>">
                                 <label for="customer_email">Email</label>
-                                <input type="email" id="customer_email" name="customer[email]" value="<?= e($customer['email']) ?>">
+                                <input type="email" id="customer_email" name="customer[email]" value="<?= e($customer['email']) ?>"<?= describedBy($errors, 'customer_email') ?>>
                                 <?= fieldError($errors, 'customer_email') ?>
                             </div>
                         </div>
@@ -334,12 +351,12 @@ function formatDisplayDate(string $value): string
                         <div class="field-row">
                             <div class="field <?= isset($errors['invoice_date']) ? 'has-error' : '' ?>">
                                 <label for="invoice_date">Invoice Date</label>
-                                <input type="date" id="invoice_date" name="invoice[date]" value="<?= e($invoice['date']) ?>">
+                                <input type="date" id="invoice_date" name="invoice[date]" value="<?= e($invoice['date']) ?>"<?= describedBy($errors, 'invoice_date') ?>>
                                 <?= fieldError($errors, 'invoice_date') ?>
                             </div>
                             <div class="field <?= isset($errors['invoice_due_date']) ? 'has-error' : '' ?>">
                                 <label for="invoice_due_date">Due Date</label>
-                                <input type="date" id="invoice_due_date" name="invoice[due_date]" value="<?= e($invoice['dueDate']) ?>">
+                                <input type="date" id="invoice_due_date" name="invoice[due_date]" value="<?= e($invoice['dueDate']) ?>"<?= describedBy($errors, 'invoice_due_date') ?>>
                                 <?= fieldError($errors, 'invoice_due_date') ?>
                             </div>
                         </div>
@@ -369,15 +386,18 @@ function formatDisplayDate(string $value): string
                             foreach ($items as $i => $item): ?>
                                 <div class="item-row">
                                     <div class="field <?= isset($errors["item_{$i}_description"]) ? 'has-error' : '' ?>">
-                                        <input type="text" name="items[<?= (int)$i ?>][description]" placeholder="e.g. Website Development" value="<?= e($item['description'] ?? '') ?>">
+                                        <label class="sr-only" for="item_<?= (int)$i ?>_description">Item <?= (int)$i + 1 ?> description</label>
+                                        <input type="text" id="item_<?= (int)$i ?>_description" name="items[<?= (int)$i ?>][description]" placeholder="e.g. Website Development" value="<?= e($item['description'] ?? '') ?>"<?= describedBy($errors, "item_{$i}_description") ?>>
                                         <?= fieldError($errors, "item_{$i}_description") ?>
                                     </div>
                                     <div class="field <?= isset($errors["item_{$i}_quantity"]) ? 'has-error' : '' ?>">
-                                        <input type="number" step="0.001" name="items[<?= (int)$i ?>][quantity]" placeholder="1" value="<?= e((string)($item['quantity'] ?? '')) ?>">
+                                        <label class="sr-only" for="item_<?= (int)$i ?>_quantity">Item <?= (int)$i + 1 ?> quantity</label>
+                                        <input type="number" step="0.001" id="item_<?= (int)$i ?>_quantity" name="items[<?= (int)$i ?>][quantity]" placeholder="1" value="<?= e((string)($item['quantity'] ?? '')) ?>"<?= describedBy($errors, "item_{$i}_quantity") ?>>
                                         <?= fieldError($errors, "item_{$i}_quantity") ?>
                                     </div>
                                     <div class="field <?= isset($errors["item_{$i}_unitPrice"]) ? 'has-error' : '' ?>">
-                                        <input type="number" step="0.01" name="items[<?= (int)$i ?>][unitPrice]" placeholder="0.00" value="<?= e((string)($item['unitPrice'] ?? '')) ?>">
+                                        <label class="sr-only" for="item_<?= (int)$i ?>_unitPrice">Item <?= (int)$i + 1 ?> unit price</label>
+                                        <input type="number" step="0.01" id="item_<?= (int)$i ?>_unitPrice" name="items[<?= (int)$i ?>][unitPrice]" placeholder="0.00" value="<?= e((string)($item['unitPrice'] ?? '')) ?>"<?= describedBy($errors, "item_{$i}_unitPrice") ?>>
                                         <?= fieldError($errors, "item_{$i}_unitPrice") ?>
                                     </div>
                                 </div>
@@ -395,7 +415,7 @@ function formatDisplayDate(string $value): string
                         <div class="field-row">
                             <div class="field <?= isset($errors['discount_type']) ? 'has-error' : '' ?>">
                                 <label for="discount_type">Discount Type</label>
-                                <select id="discount_type" name="settings[discount_type]">
+                                <select id="discount_type" name="settings[discount_type]"<?= describedBy($errors, 'discount_type') ?>>
                                     <option value="percentage" <?= $settings['discount_type'] === 'percentage' ? 'selected' : '' ?>>Percentage</option>
                                     <option value="fixed" <?= $settings['discount_type'] === 'fixed' ? 'selected' : '' ?>>Fixed Amount</option>
                                 </select>
@@ -403,12 +423,12 @@ function formatDisplayDate(string $value): string
                             </div>
                             <div class="field <?= isset($errors['discount_value']) ? 'has-error' : '' ?>">
                                 <label for="discount_value">Discount Value</label>
-                                <input type="number" step="0.01" id="discount_value" name="settings[discount_value]" value="<?= e((string)$settings['discount_value']) ?>">
+                                <input type="number" step="0.01" id="discount_value" name="settings[discount_value]" value="<?= e((string)$settings['discount_value']) ?>"<?= describedBy($errors, 'discount_value') ?>>
                                 <?= fieldError($errors, 'discount_value') ?>
                             </div>
                             <div class="field <?= isset($errors['tax_percent']) ? 'has-error' : '' ?>">
                                 <label for="tax_percent">Tax %</label>
-                                <input type="number" step="0.01" id="tax_percent" name="settings[tax_percent]" value="<?= e((string)$settings['tax_percent']) ?>">
+                                <input type="number" step="0.01" id="tax_percent" name="settings[tax_percent]" value="<?= e((string)$settings['tax_percent']) ?>"<?= describedBy($errors, 'tax_percent') ?>>
                                 <?= fieldError($errors, 'tax_percent') ?>
                             </div>
                         </div>

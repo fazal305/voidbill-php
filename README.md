@@ -7,11 +7,11 @@ deliberately as a PHP-fundamentals learning project — and phased so that
 every language feature earns its place in a real application feature
 rather than being bolted on to check a box.
 
-> **Status: Phase 12 of 15 — UI/UX audit.** A design-skill-backed pass
-> found and fixed three real accessibility gaps: error messages weren't
-> associated with their fields, item-row inputs had no accessible
-> labels at all, and the main page had no `<h1>`. This README, and the
-> app itself, will grow with each phase.
+> **Status: Phase 13 of 15 — testing.** The full quality-gate pass
+> found two real security/robustness gaps — no CSRF protection at all,
+> and production mode never actually suppressed PHP errors — both
+> fixed and verified. This README, and the app itself, will grow with
+> each phase.
 
 ## Why a phased build?
 
@@ -55,8 +55,9 @@ voidbill-php/
 │   │                             calculateDiscount(), calculateTax(),
 │   │                             calculateGrandTotal(), formatCurrency()
 │   ├── validation.php           validateInvoiceData(), isValidDate()
-│   └── persistence.php          generateInvoiceNumber(), saveInvoiceRecord(),
-│                                 loadInvoices()
+│   ├── persistence.php          generateInvoiceNumber(), saveInvoiceRecord(),
+│   │                             loadInvoices()
+│   └── csrf.php                 csrfToken(), csrfVerify()
 ├── storage/                     counter.json, invoices.json (gitignored —
 │                                 runtime data, regenerated on first use)
 ├── config/
@@ -253,6 +254,52 @@ and no glow/scanline effects — a deliberate choice from the original
 design brief to read as a serious utility tool rather than a sci-fi
 dashboard, so those suggestions were noted and not applied.
 
+## Security
+
+- **Output escaping**: every dynamic value rendered into HTML passes
+  through `e()`, an `htmlspecialchars()` wrapper — verified in Phase 13
+  by submitting `<script>`/`<img onerror>`/`<svg onload>` payloads
+  through every text field and confirming they came back escaped, not
+  executable.
+- **CSRF protection**: the invoice form embeds a session-bound token
+  (`src/csrf.php`) and every POST is verified before any of its data —
+  including `action` — is trusted. A request with a missing or wrong
+  token is treated exactly like an untrusted request: ignored, with a
+  clear error, never partially applied.
+- **Secure sessions**: `session_start()` is configured with
+  `cookie_httponly` (no JavaScript access to the session cookie) and
+  `cookie_samesite=Lax`.
+- **No raw PHP errors in production**: `config.php`'s `env` setting now
+  actually controls `display_errors`, and a `set_exception_handler()`
+  in production mode logs the real error server-side while showing the
+  user a plain "Something went wrong" page — verified by throwing a
+  simulated exception and confirming the friendly message renders while
+  the real message only reaches the log.
+- **Storage stays outside the request path**: `storage/` (invoice
+  records, the invoice counter) lives outside `public/`, the directory
+  a real web server (Apache/Nginx/PHP-FPM) actually serves from, so
+  it's structurally unreachable regardless of server configuration —
+  there's no file there to serve even if someone guessed the path.
+
+### An investigation that turned out to be a non-issue
+
+While testing direct access to `storage/invoices.json`, requests to it
+(and to arbitrary made-up paths) returned HTTP 200 with real page
+content — alarming at first glance. Reading the actual response
+headers explained it: the response carried a fresh `Set-Cookie:
+PHPSESSID=...` and PHP's session no-cache headers, which only
+`index.php`'s own `session_start()` call produces. That means PHP's
+built-in development server (`php -S`, used only for local testing —
+never for production, which is exactly why the README's [Deployment](#deployment)
+section points at Apache/Nginx instead) was falling back to executing
+`index.php` for *any* unmatched path, including a completely
+made-up filename tested for comparison. No file content was ever
+actually returned — every response was the normal, safe HTML page.
+This doesn't affect real deployment: Apache/Nginx don't have this
+fallback behavior, and `storage/` sits outside their document root
+regardless. Worth documenting precisely because it looked like a
+finding before the headers explained it wasn't one.
+
 ## PHP Concepts Demonstrated (so far)
 
 | PHP Concept | VOIDBILL Usage |
@@ -288,6 +335,9 @@ dashboard, so those suggestions were noted and not applied.
 | `for` | [`public/dashboard.php`](public/dashboard.php) collects up to 5 recent invoices by index — "up to N, by position" is a counted loop, not a "do this for every item" `foreach` |
 | Sorting (`usort()`) | Sorting `$invoices` by `generatedAt`, newest first, before slicing the recent list |
 | `array_is_list()` | Guarding `saveInvoiceRecord()`/`loadInvoices()` against a JSON file that decoded to an object instead of a list |
+| Sessions | `session_start()` with `cookie_httponly`/`cookie_samesite`, used to persist the CSRF token in `$_SESSION` across requests |
+| `hash_equals()` | Timing-safe comparison of the submitted CSRF token against the session's copy in [`src/csrf.php`](src/csrf.php) |
+| `set_exception_handler()` | Catching any uncaught error in production mode and showing a plain message instead of a stack trace |
 
 This table will keep growing through Phase 15 — a concept is only listed
 here once it's genuinely present in the code, not in anticipation of a
@@ -475,6 +525,45 @@ state test (submit intercepted with `preventDefault()`, checked
 `button.disabled` after a tick) to confirm the fix didn't regress the
 original feature.
 
+Phase 13 ran a full quality-gate pass rather than adding a feature,
+covering the spec's own testing checklist:
+
+- **Regression**: the complete happy path (add 3 items, fill customer
+  details, apply 10% discount + 5% tax, Generate Invoice) was re-run
+  after every fix below and still produced the exact expected
+  **Rs. 222,075.00**, confirming nothing was broken along the way.
+- **Security — CSRF (a real gap, found and fixed)**: auditing the form
+  for state-changing requests found there was no CSRF protection
+  anywhere in this rebuild. Added `src/csrf.php` (session-bound token,
+  `hash_equals()` comparison) and verified two ways: a forged POST with
+  a bogus token to `action=add_item` did *not* add a row and did *not*
+  apply the attacker-supplied customer name; a forged `action=generate`
+  did *not* create an invoice or advance `storage/counter.json` (checked
+  by reading the file directly before and after — it stayed at `7`).
+- **Security — XSS**: submitted `<script>alert(1)</script>`,
+  `"><img src=x onerror=alert(2)>`, and `<svg onload=alert(3)>` through
+  customer name/company and an item description; all three came back
+  fully escaped in the response, none executable.
+- **Security — direct storage access**: investigated requests to
+  `storage/invoices.json` directly; see [Security](#security) above for
+  why this looked like a finding (HTTP 200, real content) but wasn't —
+  it was `php -S`'s own dev-only fallback behavior executing
+  `index.php`, not a file-content leak, confirmed by inspecting the
+  response headers and by testing an outright made-up filename for
+  comparison.
+- **Robustness — production error handling (a real gap, found and
+  fixed)**: `env` in `config.php` was being read but never actually
+  used to control `display_errors` or catch uncaught exceptions — a
+  crash in production mode would have shown a raw PHP stack trace
+  despite the setting existing. Fixed with `ini_set()` +
+  `set_exception_handler()`, verified with an isolated script that
+  throws a `RuntimeException`: the real message went to the log while
+  the HTTP response showed only the plain "Something went wrong" page.
+- **Mobile / print**: re-confirmed no horizontal overflow on the
+  updated pages (`scrollWidth === innerWidth` at 375px) and that the
+  hidden CSRF field doesn't affect the print layout (it's a hidden
+  input; nothing to hide that wasn't already invisible).
+
 ## Development Phases
 
 1. Foundation — project structure, config, design system, app shell
@@ -488,8 +577,8 @@ original feature.
 9. Print system
 10. Dashboard / invoice history
 11. UX polish (autosave, toasts, shortcuts)
-12. **UI/UX audit** *(this phase)*
-13. Testing
+12. UI/UX audit
+13. **Testing** *(this phase)*
 14. Documentation
 15. GitHub finalization
 

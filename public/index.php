@@ -1,8 +1,16 @@
 <?php
 /**
- * VOIDBILL — Phase 11: UX polish.
+ * VOIDBILL — Phase 13: testing + a real security fix (CSRF protection).
  *
- * assets/js/app.js now adds: draft autosave/recovery via localStorage
+ * Auditing this form for state-changing requests (it can write a new
+ * invoice number and record) turned up a genuine gap: there was no
+ * CSRF protection anywhere. src/csrf.php now issues a session-bound
+ * token, embedded as a hidden field and checked before any POST is
+ * processed — a request missing or carrying the wrong token is
+ * rejected before it ever reaches validation or the calculation
+ * engine, exactly like a request with bad data would be.
+ *
+ * assets/js/app.js adds: draft autosave/recovery via localStorage
  * (a UX convenience only — the saved invoice data in storage/ remains
  * the only source of truth), toast confirmations for restoring/
  * discarding a draft, a Ctrl/Cmd+Enter shortcut for Generate Invoice,
@@ -40,9 +48,18 @@
 
 declare(strict_types=1);
 
+// Secure session handling: no JavaScript access to the cookie, and not
+// sent on cross-site navigations — both irrelevant to a plain page
+// view, but exactly what the CSRF token below relies on being true.
+session_start([
+    'cookie_httponly' => true,
+    'cookie_samesite' => 'Lax',
+]);
+
 require __DIR__ . '/../src/calculations.php';
 require __DIR__ . '/../src/validation.php';
 require __DIR__ . '/../src/persistence.php';
+require __DIR__ . '/../src/csrf.php';
 
 $config = require __DIR__ . '/../config/config.php';
 
@@ -50,6 +67,26 @@ $appName    = $config['app_name'];
 $tagline    = $config['app_tagline'];
 $isDev      = $config['env'] === 'development';
 $phpVersion = phpversion();
+
+// $isDev previously only toggled the little debug badge — it never
+// actually controlled whether PHP shows a raw error to the user. In
+// production mode, a fatal error (an unwritable storage/ directory, a
+// corrupt invoices.json, anything unexpected) should never dump a
+// stack trace; it should log the real error and show a plain message.
+ini_set('display_errors', $isDev ? '1' : '0');
+error_reporting(E_ALL);
+
+if (!$isDev) {
+    set_exception_handler(function (Throwable $e): void {
+        error_log($e->getMessage());
+        http_response_code(500);
+        echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>VOIDBILL</title></head>'
+            . '<body style="background:#0d0f12;color:#e8eaed;font-family:system-ui,sans-serif;'
+            . 'display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;">'
+            . '<div><h1 style="color:#4ee1a0;">Something went wrong</h1>'
+            . '<p>VOIDBILL ran into an unexpected error. Please try again.</p></div></body></html>';
+    });
+}
 
 // Business identity stays hardcoded for now — there's no settings phase
 // in this rebuild, so it isn't part of the form.
@@ -68,7 +105,18 @@ $allowedStatuses = ['DRAFT', 'GENERATED', 'SENT', 'PAID', 'OVERDUE'];
 // The form's field names use bracket notation (customer[name],
 // items[0][description], ...) so PHP parses $_POST into the same
 // associative/multidimensional shapes Phase 2 hardcoded by hand.
-$isPost = $_SERVER['REQUEST_METHOD'] === 'POST';
+$isPost    = $_SERVER['REQUEST_METHOD'] === 'POST';
+$csrfError = false;
+
+if ($isPost && !csrfVerify($_POST['csrf_token'] ?? null)) {
+    // A missing or wrong token means this request didn't originate from
+    // VOIDBILL's own form in this session — most likely an expired
+    // session after a long idle period, possibly a forged request.
+    // Either way, its data isn't trustworthy, so it's treated like a
+    // fresh page load rather than acted on.
+    $csrfError = true;
+    $isPost = false;
+}
 
 if ($isPost) {
     $customer       = $_POST['customer'] ?? [];
@@ -309,6 +357,11 @@ function formatDisplayDate(string $value): string
                 <h2 class="panel__title">Invoice Builder</h2>
             </div>
             <div class="panel__body">
+                <?php if ($csrfError): ?>
+                    <div class="alert alert--error" role="alert">
+                        Your session expired or the request could not be verified. Your previous entries were not applied — please re-enter them and try again.
+                    </div>
+                <?php endif; ?>
                 <?php if ($hasErrors): ?>
                     <div class="alert alert--error" role="alert">
                         Unable to update the invoice. Please check the highlighted fields and try again.
@@ -316,6 +369,7 @@ function formatDisplayDate(string $value): string
                 <?php endif; ?>
 
                 <form method="post" action="index.php" id="invoice-form" data-is-post="<?= $isPost ? '1' : '0' ?>" data-generated="<?= $generatedNumber !== null ? e($generatedNumber) : '' ?>">
+                    <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
                     <fieldset class="field-group">
                         <legend>Customer</legend>
                         <div class="field <?= isset($errors['customer_name']) ? 'has-error' : '' ?>">
@@ -632,7 +686,7 @@ function formatDisplayDate(string $value): string
         </section>
     </div>
 
-    <p class="footer-note no-print">Phase 11 of 15 — UX polish.</p>
+    <p class="footer-note no-print">Phase 13 of 15 — testing.</p>
 </main>
 
 <div class="toast-region no-print" id="toast-region" aria-live="polite"></div>

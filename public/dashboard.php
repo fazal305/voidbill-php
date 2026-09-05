@@ -19,6 +19,21 @@ $appName        = $config['app_name'];
 $tagline        = $config['app_tagline'];
 $isDev          = $config['env'] === 'development';
 $phpVersion     = phpversion();
+
+ini_set('display_errors', $isDev ? '1' : '0');
+error_reporting(E_ALL);
+
+if (!$isDev) {
+    set_exception_handler(function (Throwable $e): void {
+        error_log($e->getMessage());
+        http_response_code(500);
+        echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>VOIDBILL</title></head>'
+            . '<body style="background:#0d0f12;color:#e8eaed;font-family:system-ui,sans-serif;'
+            . 'display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;">'
+            . '<div><h1 style="color:#4ee1a0;">Something went wrong</h1>'
+            . '<p>VOIDBILL ran into an unexpected error. Please try again.</p></div></body></html>';
+    });
+}
 $currencySymbol = $config['currency_symbol'];
 
 $invoices = loadInvoices($config['storage']['invoices_file']);
@@ -178,7 +193,7 @@ function statusBadgeClass(string $status): string
         </div>
     </section>
 
-    <p class="footer-note">Phase 10 of 15 — dashboard / invoice history.</p>
+    <p class="footer-note">Phase 13 of 15 — testing.</p>
 </main>
 </body>
 </html>

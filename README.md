@@ -7,11 +7,11 @@ deliberately as a PHP-fundamentals learning project — and phased so that
 every language feature earns its place in a real application feature
 rather than being bolted on to check a box.
 
-> **Status: Phase 14 of 15 — documentation.** This README is now
-> complete: features, preview, configuration, deployment, lessons
-> learned, and a future roadmap, alongside everything already written
-> phase by phase. This README, and the app itself, will grow with each
-> phase.
+> **Status: Phase 15 of 15 — complete.** All 15 phases are finished,
+> tested, and pushed to this public repository. See
+> [Development Phases](#development-phases) for the full build order,
+> or jump straight to [PHP Concepts Demonstrated](#php-concepts-demonstrated)
+> to see exactly where each language feature earned its place.
 
 ## Table of Contents
 
@@ -28,8 +28,8 @@ rather than being bolted on to check a box.
 - [UX Polish](#ux-polish)
 - [UI/UX Audit](#uiux-audit)
 - [Security](#security)
-- [PHP Concepts Demonstrated](#php-concepts-demonstrated-so-far)
-- [Testing Performed](#testing-performed-so-far)
+- [PHP Concepts Demonstrated](#php-concepts-demonstrated)
+- [Testing Performed](#testing-performed)
 - [Deployment](#deployment)
 - [Lessons Learned](#lessons-learned)
 - [Future Roadmap](#future-roadmap)
@@ -172,7 +172,7 @@ plain values as parameters and returns a plain value — none of them read
 `$_POST`, a session, or any global. That's what makes
 `calculateSubtotal([['quantity' => 2, 'unitPrice' => 10000]])` testable
 on its own, from a plain PHP script, with no web server involved (see
-[Testing](#testing-performed-so-far) below).
+[Testing](#testing-performed) below).
 
 ## Persistence
 
@@ -385,7 +385,7 @@ fallback behavior, and `storage/` sits outside their document root
 regardless. Worth documenting precisely because it looked like a
 finding before the headers explained it wasn't one.
 
-## PHP Concepts Demonstrated (so far)
+## PHP Concepts Demonstrated
 
 | PHP Concept | VOIDBILL Usage |
 |---|---|
@@ -453,7 +453,7 @@ array. This is exactly the kind of case the project tries to avoid —
 using a function because it's on a list, rather than because it's
 actually correct for the data.
 
-## Testing Performed (so far)
+## Testing Performed
 
 `src/calculations.php` was checked against the spec's own worked
 examples with a standalone PHP script (no web server needed, since the
@@ -780,8 +780,8 @@ Plausible next steps if the project grows past this scope:
 11. UX polish (autosave, toasts, shortcuts)
 12. UI/UX audit
 13. Testing
-14. **Documentation** *(this phase)*
-15. GitHub finalization
+14. Documentation
+15. **GitHub finalization** *(this phase — complete)*
 
 ## License
 

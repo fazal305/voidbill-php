@@ -686,7 +686,7 @@ function formatDisplayDate(string $value): string
         </section>
     </div>
 
-    <p class="footer-note no-print">Phase 14 of 15 — documentation.</p>
+    <p class="footer-note no-print">VOIDBILL — all 15 phases complete.</p>
 </main>
 
 <div class="toast-region no-print" id="toast-region" aria-live="polite"></div>

@@ -1,21 +1,26 @@
 <?php
 /**
- * VOIDBILL — Phase 3: the invoice form.
+ * VOIDBILL — Phase 4: the calculation engine.
  *
- * Still no calculation engine (Phase 4) and no validation (Phase 5) —
- * whatever is submitted is accepted as-is and just redisplayed. The
- * point of this phase is $_POST, and building/growing/shrinking the
- * $items array from real form input instead of a hardcoded example.
+ * Still no validation (Phase 5) — whatever is submitted is accepted
+ * as-is. What's new is that the totals shown in the preview are no
+ * longer placeholders: calculateSubtotal()/calculateDiscount()/
+ * calculateTax()/calculateGrandTotal() in src/calculations.php compute
+ * them from the real $items and $settings arrays every time the page
+ * renders.
  *
  * There is no JavaScript yet. "+ Add Item" and "- Remove Last Item"
  * are ordinary submit buttons — the whole form (including every value
  * already typed) is resubmitted, PHP grows or shrinks the $items array
  * with array_push()/array_pop(), and the page re-renders with the
- * updated row count. Phase 11 layers instant client-side add/remove
- * on top of this; this server-only version keeps working either way.
+ * updated row count and updated totals. Phase 11 layers instant
+ * client-side add/remove on top of this; this server-only version
+ * keeps working either way.
  */
 
 declare(strict_types=1);
+
+require __DIR__ . '/../src/calculations.php';
 
 $config = require __DIR__ . '/../config/config.php';
 
@@ -98,6 +103,21 @@ $invoice = [
     'customer' => $customer,
     'items'    => $items,
 ];
+
+// --- The calculation engine ------------------------------------------------
+// Every function here takes plain values in and returns a plain value out
+// (function arguments, return values, local scope) — none of them know
+// $items or $settings exist as variable names, only as parameters.
+$discountValue = (float)$settings['discount_value'];
+$taxPercent    = (float)$settings['tax_percent'];
+
+$subtotal      = calculateSubtotal($items);
+$discountAmount = calculateDiscount($subtotal, $settings['discount_type'], $discountValue);
+$taxableAmount  = $subtotal - $discountAmount;
+$taxAmount      = calculateTax($taxableAmount, $taxPercent);
+$grandTotal     = calculateGrandTotal($taxableAmount, $taxAmount);
+
+$currencySymbol = $config['currency_symbol'];
 
 function e(?string $value): string
 {
@@ -283,13 +303,36 @@ function e(?string $value): string
                     <?php if ($invoice['notes'] !== ''): ?>
                         <p class="paper__meta">Notes: <?= e($invoice['notes']) ?></p>
                     <?php endif; ?>
-                    <p class="paper__meta">Itemized rows and totals arrive in Phases 4 and 6.</p>
+                    <p class="paper__meta">Itemized rows arrive in Phase 6 — these totals are already the real, server-calculated numbers.</p>
+
+                    <div class="paper__totals">
+                        <div class="paper__totals-row">
+                            <span>Subtotal</span>
+                            <span><?= e(formatCurrency($subtotal, $currencySymbol)) ?></span>
+                        </div>
+                        <div class="paper__totals-row">
+                            <span>Discount</span>
+                            <span><?= $discountAmount > 0 ? '− ' . e(formatCurrency($discountAmount, $currencySymbol)) : e(formatCurrency(0, $currencySymbol)) ?></span>
+                        </div>
+                        <div class="paper__totals-row">
+                            <span>Taxable Amount</span>
+                            <span><?= e(formatCurrency($taxableAmount, $currencySymbol)) ?></span>
+                        </div>
+                        <div class="paper__totals-row">
+                            <span>Tax</span>
+                            <span><?= $taxAmount > 0 ? '+ ' . e(formatCurrency($taxAmount, $currencySymbol)) : e(formatCurrency(0, $currencySymbol)) ?></span>
+                        </div>
+                        <div class="paper__totals-row paper__totals-row--grand">
+                            <span>Grand Total</span>
+                            <span><?= e(formatCurrency($grandTotal, $currencySymbol)) ?></span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
     </div>
 
-    <p class="footer-note">Phase 3 of 15 — invoice form. No calculations or validation yet.</p>
+    <p class="footer-note">Phase 4 of 15 — calculation engine. No validation yet.</p>
 </main>
 </body>
 </html>

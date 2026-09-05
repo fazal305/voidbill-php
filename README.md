@@ -7,10 +7,10 @@ deliberately as a PHP-fundamentals learning project — and phased so that
 every language feature earns its place in a real application feature
 rather than being bolted on to check a box.
 
-> **Status: Phase 3 of 15 — invoice form.** There is still no calculation
-> engine (Phase 4) and no validation (Phase 5) — whatever you submit is
-> accepted and redisplayed as-is. This README, and the app itself, will
-> grow with each phase.
+> **Status: Phase 4 of 15 — calculation engine.** There is still no
+> validation (Phase 5) — whatever you submit is accepted as-is, but the
+> totals shown are now the real, server-calculated numbers. This README,
+> and the app itself, will grow with each phase.
 
 ## Why a phased build?
 
@@ -34,22 +34,49 @@ php -S localhost:8000 -t public
 
 Then visit `http://localhost:8000`.
 
-## Project Structure (Phase 1)
+## Project Structure
 
 ```
 voidbill-php/
 ├── public/
-│   ├── index.php              Application shell (no form logic yet)
+│   ├── index.php              Form, $_POST handling, and rendering
 │   └── assets/css/
 │       ├── variables.css       Design tokens (colors, spacing, type)
-│       └── app.css             Shell layout
+│       └── app.css             Shell + form + paper layout
+├── src/
+│   └── calculations.php        calculateLineTotal(), calculateSubtotal(),
+│                                calculateDiscount(), calculateTax(),
+│                                calculateGrandTotal(), formatCurrency()
 ├── config/
 │   └── config.php              App name, tagline, currency symbol, env
 ├── README.md, LICENSE, .gitignore
 ```
 
-This will grow: `src/` (calculation, validation, storage classes) arrives
-in Phase 4 onward; `storage/` when persistence is introduced in Phase 7.
+This will grow: validation arrives in Phase 5; `storage/` when
+persistence is introduced in Phase 7.
+
+## Calculation Flow
+
+```
+Line Items
+    ↓
+Subtotal            calculateSubtotal()
+    ↓
+Discount            calculateDiscount()
+    ↓
+Taxable Amount      ($subtotal - $discountAmount)
+    ↓
+Tax                 calculateTax()
+    ↓
+Grand Total         calculateGrandTotal()
+```
+
+Every function in [`src/calculations.php`](src/calculations.php) takes
+plain values as parameters and returns a plain value — none of them read
+`$_POST`, a session, or any global. That's what makes
+`calculateSubtotal([['quantity' => 2, 'unitPrice' => 10000]])` testable
+on its own, from a plain PHP script, with no web server involved (see
+[Testing](#testing-performed-so-far) below).
 
 ## PHP Concepts Demonstrated (so far)
 
@@ -68,6 +95,13 @@ in Phase 4 onward; `storage/` when persistence is introduced in Phase 7.
 | `array_pop()` | Removes the last row from `$items` when "− Remove Last Item" is submitted |
 | `foreach` | Rendering one editable input row per item; rendering the status `<select>` options list |
 | Ternary operator | `$statusOption === $invoice['status'] ? 'selected' : ''` when marking the current status option |
+| Custom functions | `calculateLineTotal()`, `calculateSubtotal()`, `calculateDiscount()`, `calculateTax()`, `calculateGrandTotal()`, `formatCurrency()` in [`src/calculations.php`](src/calculations.php) |
+| Function arguments | Every calculation function takes its inputs as parameters — nothing reads `$_POST` or a global directly |
+| Return values | Every calculation function returns its result rather than assigning to an outer-scope variable |
+| Default parameters | `formatCurrency(float $amount, string $currency = 'Rs.')` |
+| Variable scope | `$subtotal` inside `calculateSubtotal()` is local — the caller only ever sees it via the return value |
+| `switch` | `calculateDiscount()` branches on `$discountType` (`'percentage'` vs `'fixed'`) |
+| Arithmetic operators | `$quantity * $unitPrice`, `$subtotal - $discountAmount`, `$taxableAmount + $taxAmount` |
 
 This table will keep growing through Phase 15 — a concept is only listed
 here once it's genuinely present in the code, not in anticipation of a
@@ -85,12 +119,31 @@ deliberately last-row-only for now, matching how `array_pop()` naturally
 pairs with `array_push()` — removing an arbitrary row would need
 `array_splice()` or a keyed `unset()`, which isn't necessary yet.
 
+## Testing Performed (so far)
+
+`src/calculations.php` was checked against the spec's own worked
+examples with a standalone PHP script (no web server needed, since the
+functions don't touch `$_POST`):
+
+| Input | Expected | Actual |
+|---|---|---|
+| Qty 2 × Rs. 10,000, 10% discount, 5% tax | Subtotal 20,000 / Discount 2,000 / Taxable 18,000 / Tax 900 / **Total 18,900** | ✅ matched exactly |
+| Three items: 1×150,000 + 1×25,000 + 6×10,000 | Subtotal **235,000** | ✅ matched exactly |
+| Fixed discount (5,000) larger than subtotal (1,000) | Discount clamped to 1,000, never negative taxable amount | ✅ clamped correctly |
+| `formatCurrency(2499.9975)` | `Rs. 2,500.00`, no floating-point artifact | ✅ |
+| Zero discount, zero tax | Grand total exactly equals subtotal | ✅ |
+
+The same numbers were then re-verified by actually driving the live form
+in a browser (filling fields, clicking Add Item, submitting) rather than
+just trusting the standalone script — both agreed. Also checked: no
+console errors, and no horizontal overflow at 375px mobile width.
+
 ## Development Phases
 
 1. Foundation — project structure, config, design system, app shell
 2. Invoice data structure (associative/multidimensional arrays)
-3. **Invoice form (`$_POST`, line items, add/remove)** *(this phase)*
-4. PHP calculation engine (functions, arguments, return values)
+3. Invoice form (`$_POST`, line items, add/remove)
+4. **PHP calculation engine (functions, arguments, return values)** *(this phase)*
 5. Server-side validation
 6. `foreach`-driven invoice rendering
 7. Invoice numbering + JSON persistence

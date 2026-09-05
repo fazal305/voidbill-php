@@ -7,11 +7,34 @@ deliberately as a PHP-fundamentals learning project — and phased so that
 every language feature earns its place in a real application feature
 rather than being bolted on to check a box.
 
-> **Status: Phase 13 of 15 — testing.** The full quality-gate pass
-> found two real security/robustness gaps — no CSRF protection at all,
-> and production mode never actually suppressed PHP errors — both
-> fixed and verified. This README, and the app itself, will grow with
-> each phase.
+> **Status: Phase 14 of 15 — documentation.** This README is now
+> complete: features, preview, configuration, deployment, lessons
+> learned, and a future roadmap, alongside everything already written
+> phase by phase. This README, and the app itself, will grow with each
+> phase.
+
+## Table of Contents
+
+- [Why a phased build?](#why-a-phased-build)
+- [Preview](#preview)
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation & Running Locally](#running-locally)
+- [Project Structure](#project-structure)
+- [Configuration](#configuration)
+- [Calculation Flow](#calculation-flow)
+- [Persistence](#persistence)
+- [Printing](#printing)
+- [UX Polish](#ux-polish)
+- [UI/UX Audit](#uiux-audit)
+- [Security](#security)
+- [PHP Concepts Demonstrated](#php-concepts-demonstrated-so-far)
+- [Testing Performed](#testing-performed-so-far)
+- [Deployment](#deployment)
+- [Lessons Learned](#lessons-learned)
+- [Future Roadmap](#future-roadmap)
+- [Development Phases](#development-phases)
+- [License](#license)
 
 ## Why a phased build?
 
@@ -22,6 +45,41 @@ to see where this ends up. But a finished app isn't the same as a project
 that *teaches* — so this version of `main` is being rebuilt slowly,
 phase by phase, with each PHP concept introduced at the point it's
 actually needed. See [Development Phases](#development-phases) below.
+
+## Preview
+
+There's no live-hosted demo (see [Deployment](#deployment) for why),
+but here's what each page actually does once it's running locally:
+
+| Page | What's there |
+|---|---|
+| `index.php` — **New Invoice** | A two-column workspace: an invoice-builder form on the left (customer, dates, line items, discount/tax, notes/terms) and a live invoice preview on the right that updates on every "Update Preview". "Generate Invoice" assigns a real sequential number and saves the record. |
+| `dashboard.php` — **Dashboard** | Four stat cards (total invoices, total value, paid, outstanding) and a table of the 5 most recently generated invoices, each with a color-coded status badge. |
+| Print view (any invoice, via **Print Invoice**) | The same document, with the dark app shell, form, and buttons stripped away by `print.css`, laid out for A4. |
+
+## Features
+
+- Dynamic, validated multi-item invoicing with live server-recalculated
+  totals (subtotal → discount → taxable amount → tax → grand total)
+- Percentage or fixed-amount discounts, clamped so they can never
+  exceed the subtotal
+- Sequential, year-scoped invoice numbering (`INV-2026-0001`, ...)
+  backed by a locked JSON file — see [Persistence](#persistence)
+- A professional, print-ready invoice document (full business/customer
+  contact details, dates, status badge, payment terms, terms &
+  conditions) with a dedicated A4 print stylesheet
+- A dashboard summarizing every invoice ever generated: totals, paid
+  vs. outstanding, and recent history
+- Strong server-side validation with field-level, accessible error
+  messages — nothing is ever trusted from the client
+- CSRF-protected forms and no raw PHP errors shown to users in
+  production mode
+- Draft autosave/recovery (`localStorage`), toast confirmations, and a
+  Ctrl/Cmd+Enter shortcut for generating an invoice
+- Fully keyboard-navigable, with visible focus states, accessible
+  labels/error associations, and `prefers-reduced-motion` support
+- Responsive from desktop down to a 375px phone, with no horizontal
+  overflow anywhere
 
 ## Requirements
 
@@ -65,6 +123,33 @@ voidbill-php/
 │                                 storage file paths
 ├── README.md, LICENSE, .gitignore
 ```
+
+## Configuration
+
+Everything configurable lives in [`config/config.php`](config/config.php)
+as a plain PHP array — no `.env` parser needed for a project this size:
+
+```php
+return [
+    'app_name'    => 'VOIDBILL',
+    'app_tagline' => 'PHP INVOICE ENGINE',
+    'env'         => 'production',   // 'development' shows raw PHP errors
+    'currency_symbol' => 'Rs.',
+    'invoice_prefix'  => 'INV',
+    'storage' => [
+        'counter_file'  => __DIR__ . '/../storage/counter.json',
+        'invoices_file' => __DIR__ . '/../storage/invoices.json',
+    ],
+];
+```
+
+Business identity (name, contact details) is hardcoded near the top of
+`public/index.php` rather than pulled from config — this rebuild
+deliberately has no settings page (see [Future Roadmap](#future-roadmap)).
+Change it there directly if you want your own details on generated
+invoices. Set `env` to `'development'` locally if you need to see raw
+PHP errors while working on the code; always leave it as `'production'`
+for anything another person might load.
 
 ## Calculation Flow
 
@@ -564,6 +649,122 @@ covering the spec's own testing checklist:
   hidden CSRF field doesn't affect the print layout (it's a hidden
   input; nothing to hide that wasn't already invisible).
 
+## Deployment
+
+**GitHub Pages cannot host this project.** It only serves static
+files — HTML, CSS, client-side JS — and has no PHP runtime at all.
+VOIDBILL needs a server that actually executes PHP, so it targets
+ordinary PHP hosting instead:
+
+1. Any host with PHP 8.1+ — a shared/cPanel host, a VPS running
+   Apache or Nginx with PHP-FPM, or a container running `php:8-apache`
+   or `php:8-fpm`.
+2. Point the web server's **document root at `voidbill-php/public/`**
+   specifically — not the repository root. `src/`, `config/`, and
+   `storage/` must stay outside the document root, which is exactly
+   what makes them non-web-accessible (see [Security](#security)).
+3. Make sure the PHP process can create and write to `storage/` — it's
+   created automatically on first invoice generation if missing, but
+   its parent directory needs to be writable.
+4. Confirm `config/config.php`'s `env` is `'production'` (it is, by
+   default).
+
+Example Apache vhost:
+
+```apache
+<VirtualHost *:80>
+    ServerName voidbill.example.com
+    DocumentRoot /var/www/voidbill-php/public
+    <Directory /var/www/voidbill-php/public>
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
+```
+
+For local development or a quick demo, PHP's built-in server is
+sufficient and is what every phase of this project was actually tested
+against:
+
+```powershell
+php -S localhost:8000 -t public
+```
+
+## Lessons Learned
+
+This project was explicitly built to reinforce specific PHP
+fundamentals, and it did — not always in the ways originally expected:
+
+- **Variables, arrays, and control flow** stopped being abstract once
+  they had a real job: an associative array replaced a pile of loose
+  `$customerName`/`$customerEmail` variables (Phase 2); `foreach` +
+  `continue` skipping a blank row read more naturally than a nested
+  `if` would have (Phases 5–6); `switch` earned its place exactly
+  twice — discount type and invoice status — matching what the spec
+  predicted before any code was written.
+- **Functions with real boundaries are easier to trust.** Every
+  calculation function in `src/calculations.php` takes plain arguments
+  and returns a plain value, with no access to `$_POST` or a global.
+  That's not a stylistic preference — it's what made it possible to
+  write a 10-line standalone script that verified `calculateSubtotal()`
+  against the spec's own worked example *before* the web form even
+  existed, and to trust that a passing test there meant something.
+- **Two real bugs only showed up by actually running the app**, not by
+  reading the code:
+  - A Windows-specific `flock()` deadlock (opening a second file handle
+    to a file already locked by the same process) silently produced an
+    empty `invoices.json` with no visible error — see
+    [`v1-full-featured`](../../tree/v1-full-featured)'s history for
+    where this was first hit.
+  - Disabling a submit button *inside its own submit event* stripped
+    its `name=action` value from the request before it was serialized,
+    silently turning "+ Add Item" into a no-op (Phase 11). Both were
+    caught by clicking the actual button in a browser and noticing
+    nothing happened — not by inspecting the source and assuming it
+    was correct.
+- **Security gaps hide behind "it still works."** The app worked
+  perfectly well with no CSRF protection and no production error
+  handling for twelve phases — nothing about clicking through it
+  suggested anything was wrong. Both were only found by deliberately
+  auditing for them in Phase 13, which is exactly why that phase
+  exists as a distinct step rather than being folded into "seems done."
+- **`static` variables and cross-request state look similar and
+  aren't.** Reaching for a `static` counter for invoice numbering would
+  have worked in a quick manual test and failed unpredictably in
+  practice, since a PHP-FPM worker (or a fresh CLI process) doesn't
+  remember anything between separate HTTP requests. The fix wasn't a
+  cleverer variable — it was recognizing the problem was about state
+  *outside* the running script, which only a file, database, or cache
+  can hold.
+
+## Future Roadmap
+
+Deliberately **not** built, to keep VOIDBILL focused on demonstrating
+PHP fundamentals rather than becoming a small ERP:
+
+- A relational database (a locked JSON file is enough at this scale;
+  see [Persistence](#persistence) for exactly where that stops being
+  true)
+- User accounts / authentication
+- A business-settings page (business identity is currently hardcoded —
+  see [Configuration](#configuration))
+- PDF generation via a library (the browser's own "Print → Save as
+  PDF" already covers this)
+- Emailing invoices
+- Payment gateway integration or payment tracking beyond a manual
+  status field
+- Reporting beyond the dashboard's existing totals
+
+Plausible next steps if the project grows past this scope:
+
+- Editing a saved invoice (currently immutable once generated — only
+  its status can change, via a future status-editing UI)
+- CSV export of the dashboard's invoice list
+- A "duplicate this invoice" action to start a new one from a past one
+- Client-side item add/remove (the full JavaScript version already
+  exists on [`v1-full-featured`](../../tree/v1-full-featured), kept
+  out of this rebuild deliberately — see [UX Polish](#ux-polish))
+
 ## Development Phases
 
 1. Foundation — project structure, config, design system, app shell
@@ -578,8 +779,8 @@ covering the spec's own testing checklist:
 10. Dashboard / invoice history
 11. UX polish (autosave, toasts, shortcuts)
 12. UI/UX audit
-13. **Testing** *(this phase)*
-14. Documentation
+13. Testing
+14. **Documentation** *(this phase)*
 15. GitHub finalization
 
 ## License

@@ -193,7 +193,7 @@ function statusBadgeClass(string $status): string
         </div>
     </section>
 
-    <p class="footer-note">Phase 13 of 15 — testing.</p>
+    <p class="footer-note">Phase 14 of 15 — documentation.</p>
 </main>
 </body>
 </html>

@@ -15,7 +15,9 @@ return [
     'app_tagline' => 'PHP INVOICE ENGINE',
 
     // 'development' is allowed to show raw PHP errors; 'production' is not.
-    'env' => 'development',
+    // Left as 'production' by default — flip it locally if you need to see
+    // raw PHP errors while working on the code.
+    'env' => 'production',
 
     'currency_symbol' => 'Rs.',
     'invoice_prefix'  => 'INV',

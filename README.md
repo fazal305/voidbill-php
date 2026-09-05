@@ -48,8 +48,9 @@ actually needed. See [Development Phases](#development-phases) below.
 
 ## Preview
 
-There's no live-hosted demo (see [Deployment](#deployment) for why),
-but here's what each page actually does once it's running locally:
+**Live demo: [voidbill.free.je](http://voidbill.free.je)** — deployed
+on free PHP hosting; see [Deployment](#deployment) for the (slightly
+unusual) details of getting it there. Here's what each page does:
 
 | Page | What's there |
 |---|---|
@@ -690,6 +691,38 @@ against:
 php -S localhost:8000 -t public
 ```
 
+### How the live demo is actually deployed (InfinityFree)
+
+The live demo runs on [InfinityFree](https://infinityfree.com), a free
+shared PHP host — which surfaced a real constraint the setup above
+assumes away: **InfinityFree only persists files inside its web root
+(`htdocs/`).** Uploading `src/`, `config/`, or `storage/` as siblings of
+`htdocs/` (exactly the layout point 2 above describes, and the layout
+that works on any host with real directory-level control) accepted the
+upload over FTP without error, but the files silently vanished shortly
+after — confirmed by testing an upload inside a nested `htdocs/`
+subdirectory (which persisted fine) against one outside `htdocs/`
+(which didn't), and by re-checking after both a few seconds and much
+longer, ruling out ordinary replication lag.
+
+The fix for this specific host: `src/`, `config/`, and `storage/` all
+move *inside* `htdocs/` as siblings of `index.php`, with the two entry
+files' `require __DIR__ . '/../src/...'` paths changed to
+`require __DIR__ . '/src/...'` (and the same for `config/config.php`)
+— the only code difference between the git repository (which keeps the
+standard, "real host" layout throughout) and what's actually deployed.
+Since those directories can no longer rely on being outside the web
+root to stay private, each one gets its own `.htaccess` with
+`Require all denied` (and the older `Deny from all` for compatibility)
+— verified by requesting `/storage/invoices.json`, `/config/config.php`,
+and `/src/persistence.php` directly and confirming all three return
+403, while the app itself (which reads these files server-side, not
+over HTTP) continues to work normally.
+
+If you're deploying to a host with normal FTP/SSH directory access
+(any VPS, most cPanel hosts), you don't need any of this — follow the
+numbered steps above as written.
+
 ## Lessons Learned
 
 This project was explicitly built to reinforce specific PHP
@@ -736,6 +769,16 @@ fundamentals, and it did — not always in the ways originally expected:
   cleverer variable — it was recognizing the problem was about state
   *outside* the running script, which only a file, database, or cache
   can hold.
+- **A working local deployment story doesn't guarantee a working real
+  one.** The README's Apache/Nginx instructions were correct throughout
+  — and still are — but the very first live deployment attempt (to
+  InfinityFree) hit a constraint no amount of re-reading the code would
+  have surfaced: that specific host only persists files inside its web
+  root, silently dropping anything uploaded outside it. It looked
+  identical to a successful upload (the FTP server returned success)
+  right up until the files just weren't there. The lesson wasn't "write
+  better deployment docs" — it was that a deployment target is itself
+  worth testing against, not just documenting for.
 
 ## Future Roadmap
 

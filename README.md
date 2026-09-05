@@ -7,9 +7,9 @@ deliberately as a PHP-fundamentals learning project — and phased so that
 every language feature earns its place in a real application feature
 rather than being bolted on to check a box.
 
-> **Status: Phase 1 of 15 — foundation only.** There is no invoice form,
-> no calculation engine, and no persistence yet. This README, and the
-> app itself, will grow with each phase.
+> **Status: Phase 2 of 15 — invoice data structure.** There is still no
+> real form (that's Phase 3) and no calculation engine (Phase 4). This
+> README, and the app itself, will grow with each phase.
 
 ## Why a phased build?
 
@@ -55,9 +55,10 @@ in Phase 4 onward; `storage/` when persistence is introduced in Phase 7.
 | PHP Concept | VOIDBILL Usage |
 |---|---|
 | Variables & data types | `$appName` (string), `$itemCount` (int), `$isDev` (bool) in [`public/index.php`](public/index.php) |
-| Associative arrays | `$config` loaded from [`config/config.php`](config/config.php) |
-| Indexed arrays | `$items = []` in [`public/index.php`](public/index.php) — populated for real in Phase 2 |
-| `count()` | Counting `$items` to decide the empty-state message |
+| Associative arrays | `$config`, `$business`, `$customer`, `$settings` — related fields grouped under descriptive string keys |
+| Indexed arrays | `$items` — a numbered list of line items |
+| Multidimensional arrays | `$items` is an indexed array of associative arrays (each row has `description`/`quantity`/`unitPrice`); `$invoice` nests `$customer` and `$items` inside itself |
+| `count()` | `count($invoice['items'])` decides the item-count message shown in both panels |
 | Comparison operators | `$config['env'] === 'development'` |
 | `if / else` | Choosing the builder panel's placeholder message based on `$itemCount` |
 
@@ -67,8 +68,8 @@ future phase.
 
 ## Development Phases
 
-1. **Foundation** — project structure, config, design system, app shell *(this phase)*
-2. Invoice data structure (associative/multidimensional arrays)
+1. Foundation — project structure, config, design system, app shell
+2. **Invoice data structure (associative/multidimensional arrays)** *(this phase)*
 3. Invoice form (`$_POST`, line items, add/remove)
 4. PHP calculation engine (functions, arguments, return values)
 5. Server-side validation

@@ -1,40 +1,98 @@
 <?php
 /**
- * VOIDBILL — Phase 1: project foundation only.
+ * VOIDBILL — Phase 2: the invoice data structure.
  *
- * No invoice form yet (that's Phase 3), no calculation engine yet
- * (Phase 4). This page just proves out the folder structure, the config
- * file, and the two-panel application shell the rest of the app will be
- * built inside of.
+ * Still no form (Phase 3) and no calculation engine (Phase 4) — this
+ * page hardcodes one example invoice so the shape of the data can be
+ * seen clearly before anything gets built on top of it. Phase 3 will
+ * replace this hardcoded array with data read from $_POST; the shape
+ * stays the same.
  */
 
 declare(strict_types=1);
 
 // --- Variables & data types ---------------------------------------------
-// $config is an associative array (string keys => values) loaded from a
-// plain PHP file — this is VOIDBILL's whole "configuration system".
 $config = require __DIR__ . '/../config/config.php';
 
-$appName    = $config['app_name'];     // string
-$tagline    = $config['app_tagline'];  // string
-$isDev      = $config['env'] === 'development'; // bool, via a comparison operator
-$phpVersion = phpversion();            // string, e.g. "8.4.24"
+$appName    = $config['app_name'];
+$tagline    = $config['app_tagline'];
+$isDev      = $config['env'] === 'development';
+$phpVersion = phpversion();
 
-// --- Arrays --------------------------------------------------------------
-// The line-item list will become a real, populated array in Phase 2. For
-// now it's an empty indexed array, which is enough to demonstrate count()
-// and a basic conditional against real (if currently empty) data rather
-// than a hardcoded example.
-$items = [];
-$itemCount = count($items);
+// --- Associative arrays ---------------------------------------------------
+// Each of these groups related fields under descriptive string keys.
+// "$business['name']" reads far better than a bag of loose variables
+// like $businessName, $businessEmail, $businessPhone, etc.
+$business = [
+    'name'    => 'Fazal Abbas',
+    'owner'   => 'Fazal Abbas',
+    'email'   => 'fazalabbas2002@gmail.com',
+    'phone'   => '+92 300 1234567',
+    'address' => 'Karachi, Pakistan',
+];
+
+$customer = [
+    'name'    => 'Ahmed Traders',
+    'company' => 'Ahmed Traders Pvt Ltd',
+    'email'   => 'ahmed@traders.pk',
+    'phone'   => '',
+    'address' => '',
+];
+
+// --- Multidimensional array ------------------------------------------------
+// $items is an indexed array (0, 1, 2, ...) where every element is itself
+// an associative array. This is the shape line items will keep for the
+// rest of the project — Phase 4 reads 'quantity' and 'unitPrice' out of
+// each row to calculate a line total.
+$items = [
+    [
+        'description' => 'Website Development',
+        'quantity'    => 1,
+        'unitPrice'   => 150000,
+    ],
+    [
+        'description' => 'Hosting',
+        'quantity'    => 1,
+        'unitPrice'   => 25000,
+    ],
+    [
+        'description' => 'Maintenance',
+        'quantity'    => 6,
+        'unitPrice'   => 10000,
+    ],
+];
+
+// Default invoice-level settings — discount type/value and tax percent
+// live here rather than as loose variables, because Phase 4's
+// calculation functions will take a $settings array as one argument
+// instead of three or four separate ones.
+$settings = [
+    'currencySymbol' => $config['currency_symbol'],
+    'discountType'   => 'percentage', // or 'fixed' — used by Phase 4's switch
+    'discountValue'  => 10,
+    'taxPercent'     => 5,
+];
+
+// The invoice itself nests $customer and $items inside one associative
+// array — a multidimensional structure that mirrors how the real form
+// data will be assembled in Phase 3.
+$invoice = [
+    'number'   => null, // assigned in Phase 7
+    'date'     => date('Y-m-d'),
+    'status'   => 'DRAFT',
+    'customer' => $customer,
+    'items'    => $items,
+    'notes'    => '',
+];
+
+// --- count() ---------------------------------------------------------------
+$itemCount = count($invoice['items']);
 
 // --- Basic conditional ----------------------------------------------------
-// A plain if/else, not a contrived one: whether the builder panel shows
-// placeholder text or real items depends entirely on $itemCount.
 if ($itemCount === 0) {
-    $itemsMessage = 'No invoice items yet. Line items arrive in Phase 2.';
+    $itemsMessage = 'No invoice items yet. Add your first item to begin.';
 } else {
-    $itemsMessage = $itemCount . ' item(s) loaded.';
+    $itemsMessage = $itemCount . ' line item(s) in this invoice.';
 }
 ?>
 <!DOCTYPE html>
@@ -67,7 +125,10 @@ if ($itemCount === 0) {
                 <h2 class="panel__title">Invoice Builder</h2>
             </div>
             <div class="panel__body">
-                <p class="empty-state"><?= htmlspecialchars($itemsMessage, ENT_QUOTES, 'UTF-8') ?></p>
+                <p class="empty-state">
+                    No form yet — this is hardcoded example data (Phase 3 adds the real form).<br>
+                    <?= htmlspecialchars($itemsMessage, ENT_QUOTES, 'UTF-8') ?>
+                </p>
             </div>
         </section>
 
@@ -79,12 +140,30 @@ if ($itemCount === 0) {
                 <div class="paper">
                     <div class="paper__brand">VOID<span>BILL</span></div>
                     <div class="paper__tagline"><?= htmlspecialchars($tagline, ENT_QUOTES, 'UTF-8') ?></div>
+
+                    <div class="paper__parties">
+                        <div>
+                            <div class="paper__label">From</div>
+                            <strong><?= htmlspecialchars($business['name'], ENT_QUOTES, 'UTF-8') ?></strong>
+                        </div>
+                        <div>
+                            <div class="paper__label">Bill To</div>
+                            <strong><?= htmlspecialchars($invoice['customer']['name'], ENT_QUOTES, 'UTF-8') ?></strong>
+                            <div><?= htmlspecialchars($invoice['customer']['company'], ENT_QUOTES, 'UTF-8') ?></div>
+                        </div>
+                    </div>
+
+                    <p class="paper__meta">
+                        Status: <strong><?= htmlspecialchars($invoice['status'], ENT_QUOTES, 'UTF-8') ?></strong>
+                        &middot; <?= htmlspecialchars($itemsMessage, ENT_QUOTES, 'UTF-8') ?>
+                    </p>
+                    <p class="paper__meta">Itemized rows and totals arrive in Phases 4 and 6.</p>
                 </div>
             </div>
         </section>
     </div>
 
-    <p class="footer-note">Phase 1 of 15 — foundation only. No form, no calculations yet.</p>
+    <p class="footer-note">Phase 2 of 15 — invoice data structure. No form, no calculations yet.</p>
 </main>
 </body>
 </html>

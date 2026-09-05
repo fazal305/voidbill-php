@@ -1,0 +1,73 @@
+/*
+ * VOIDBILL — Phase 9: print stylesheet.
+ *
+ * Loaded only for the print media type (see the <link media="print">
+ * tag in index.php), so none of this affects the on-screen app. The
+ * goal: printing the page shows the invoice document and nothing else
+ * — no dark shell, no form, no buttons.
+ */
+
+@media print {
+    @page {
+        size: A4;
+        margin: 16mm;
+    }
+
+    html, body {
+        background: #ffffff !important;
+    }
+
+    /* Everything that isn't the invoice document itself. */
+    .topbar,
+    .panel[aria-label="Invoice builder"],
+    .alert,
+    .no-print,
+    .footer-note,
+    .skip-link {
+        display: none !important;
+    }
+
+    .shell {
+        max-width: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .workspace {
+        display: block;
+    }
+
+    .panel[aria-label="Invoice preview"] {
+        border: 0;
+        border-radius: 0;
+    }
+
+    .panel[aria-label="Invoice preview"] .panel__header {
+        display: none;
+    }
+
+    .panel__body {
+        padding: 0;
+    }
+
+    .paper {
+        padding: 0;
+        border-radius: 0;
+        color: #1a1c1f !important;
+    }
+
+    /* The on-screen table scrolls horizontally if it has to; a printed
+       page can't scroll, so let it lay out at full width instead. */
+    .table-scroll {
+        overflow: visible;
+    }
+
+    table.paper-items {
+        min-width: 0;
+    }
+
+    a {
+        color: inherit !important;
+        text-decoration: none !important;
+    }
+}

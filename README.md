@@ -7,11 +7,11 @@ deliberately as a PHP-fundamentals learning project — and phased so that
 every language feature earns its place in a real application feature
 rather than being bolted on to check a box.
 
-> **Status: Phase 8 of 15 — the professional invoice preview.** The
-> preview panel is now a genuine invoice document: full business and
-> customer contact details, invoice date and due date, a color-coded
-> status badge, payment terms, and terms & conditions. This README, and
-> the app itself, will grow with each phase.
+> **Status: Phase 9 of 15 — the print system.** "Print Invoice" opens
+> the browser's print dialog, and a dedicated print stylesheet strips
+> away everything except the invoice document — no dark shell, no
+> form, no buttons — laid out for A4. This README, and the app itself,
+> will grow with each phase.
 
 ## Why a phased build?
 
@@ -44,7 +44,8 @@ voidbill-php/
 │   ├── index.php              Form, $_POST handling, and rendering
 │   └── assets/css/
 │       ├── variables.css       Design tokens (colors, spacing, type)
-│       └── app.css             Shell + form + paper layout
+│       ├── app.css             Shell + form + paper layout
+│       └── print.css           A4 print layout (loaded only for print)
 ├── src/
 │   ├── calculations.php         calculateLineTotal(), calculateSubtotal(),
 │   │                             calculateDiscount(), calculateTax(),
@@ -121,6 +122,27 @@ something that outlives the PHP process itself: a file (what
 This is exactly the distinction between *variable scope within a
 script* and *state across requests* — two different problems that look
 similar until you hit this exact bug.
+
+## Printing
+
+Click **Print Invoice** (in the preview panel's header) to open the
+browser's native print dialog — no PDF library is used or needed,
+since "Print → Save as PDF" in any modern browser produces a clean PDF
+on its own. [`public/assets/css/print.css`](public/assets/css/print.css)
+is loaded only for the `print` media type (`<link media="print">`), so
+it never affects normal browsing. When printing, it:
+
+- Hides the dark app shell, the entire invoice-builder form, alerts,
+  and anything marked `.no-print` (including the Print Invoice button
+  itself — no point printing a button).
+- Lets the item table drop its on-screen `min-width` and horizontal
+  scroll, since a printed page can't scroll — it just lays out at full
+  width instead.
+- Sets `@page { size: A4; margin: 16mm; }` so the printed result is a
+  standard A4 document with sensible margins.
+
+What's left after all that is just the invoice document, on a plain
+white background, exactly as it looks in the on-screen preview.
 
 ## PHP Concepts Demonstrated (so far)
 
@@ -273,6 +295,20 @@ case). Generated an invoice and confirmed `paymentTerms` and
 the file directly. Re-checked mobile: the new invoice-date/due-date/
 status row collapses to a single column under 560px with no overflow.
 
+Print mode can't be triggered headlessly, so it was verified by
+loading `print.css`'s rules unwrapped from their `@media print` guard
+into the live page (purely a testing technique — the shipped CSS stays
+correctly scoped to `media="print"`) and confirming with
+`getComputedStyle()`, not just a screenshot, that `.topbar`, the Print
+Invoice button, and the success banner all actually compute to
+`display: none`. Then tested with a 4-item invoice, a long multi-sentence
+note, payment terms, and terms & conditions at A4 width (794px) — the
+whole document fit cleanly with all four items visible, the table's
+on-screen horizontal scroll correctly gone (full width instead, since
+a printed page can't scroll), the long note wrapped without clipping,
+and `document.body.scrollWidth === window.innerWidth` held with no
+overflow.
+
 ## Development Phases
 
 1. Foundation — project structure, config, design system, app shell
@@ -282,8 +318,8 @@ status row collapses to a single column under 560px with no overflow.
 5. Server-side validation
 6. `foreach`-driven invoice rendering
 7. Invoice numbering + JSON persistence
-8. **Professional invoice preview** *(this phase)*
-9. Print system
+8. Professional invoice preview
+9. **Print system** *(this phase)*
 10. Dashboard / invoice history
 11. UX polish (autosave, toasts, shortcuts)
 12. UI/UX audit

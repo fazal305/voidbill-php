@@ -1,8 +1,15 @@
 <?php
 /**
- * VOIDBILL — Phase 8: the professional invoice preview.
+ * VOIDBILL — Phase 9: the print system.
  *
- * The paper preview now shows everything a real invoice needs: full
+ * "Print Invoice" calls the browser's native window.print() — the one
+ * unavoidable line of JavaScript before Phase 11 formally introduces a
+ * script file, since there's no CSS-only way to open the print dialog.
+ * assets/css/print.css (loaded only for the print media type) hides
+ * everything except the invoice document itself, so what prints is a
+ * clean A4 page, not a screenshot of the dark app shell.
+ *
+ * The paper preview shows everything a real invoice needs: full
  * business and customer contact details, invoice date and due date,
  * a color-coded status badge, payment terms, and terms & conditions —
  * not just a name and a total.
@@ -256,6 +263,7 @@ function formatDisplayDate(string $value): string
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/variables.css">
     <link rel="stylesheet" href="assets/css/app.css">
+    <link rel="stylesheet" href="assets/css/print.css" media="print">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -424,6 +432,7 @@ function formatDisplayDate(string $value): string
         <section class="panel" aria-label="Invoice preview">
             <div class="panel__header">
                 <h2 class="panel__title">Invoice Preview</h2>
+                <button type="button" class="btn btn--sm no-print" onclick="window.print()">Print Invoice</button>
             </div>
             <div class="panel__body">
                 <?php if ($generatedNumber !== null): ?>
@@ -594,7 +603,7 @@ function formatDisplayDate(string $value): string
         </section>
     </div>
 
-    <p class="footer-note">Phase 8 of 15 — the professional invoice preview.</p>
+    <p class="footer-note no-print">Phase 9 of 15 — the print system.</p>
 </main>
 </body>
 </html>

@@ -321,6 +321,13 @@ function formatDisplayDate(string $value): string
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($appName) ?> — <?= e($tagline) ?></title>
+    <meta name="description" content="VOIDBILL is a professional PHP invoice generator built on native PHP 8, with server-authoritative calculations, sequential invoice numbering, and a printable A4 invoice.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="<?= e($appName) ?> — <?= e($tagline) ?>">
+    <meta property="og:description" content="A professional PHP invoice generator built on native PHP 8, with server-authoritative calculations and a printable A4 invoice.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<?= e($appName) ?> — <?= e($tagline) ?>">
+    <meta name="twitter:description" content="A professional PHP invoice generator built on native PHP 8, with server-authoritative calculations and a printable A4 invoice.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">

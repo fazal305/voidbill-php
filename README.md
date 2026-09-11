@@ -48,9 +48,8 @@ actually needed. See [Development Phases](#development-phases) below.
 
 ## Preview
 
-**Live demo: [voidbill.free.je](http://voidbill.free.je)** — deployed
-on free PHP hosting; see [Deployment](#deployment) for the (slightly
-unusual) details of getting it there. Here's what each page does:
+**Live demo:** not currently deployed — see [Deployment](#deployment)
+for how to run it on any PHP 8.1+ host. Here's what each page does:
 
 | Page | What's there |
 |---|---|
@@ -691,9 +690,9 @@ against:
 php -S localhost:8000 -t public
 ```
 
-### How the live demo is actually deployed (InfinityFree)
+### How the live demo was deployed (InfinityFree)
 
-The live demo runs on [InfinityFree](https://infinityfree.com), a free
+A previous live demo ran on [InfinityFree](https://infinityfree.com), a free
 shared PHP host — which surfaced a real constraint the setup above
 assumes away: **InfinityFree only persists files inside its web root
 (`htdocs/`).** Uploading `src/`, `config/`, or `storage/` as siblings of

@@ -7,50 +7,53 @@
 */
 
 :root {
-    /* Shell surfaces */
-    --color-background: #0d0f12;
-    --color-surface: #16191d;
-    --color-surface-elevated: #1c2025;
-    --color-border: #2a2e34;
+  /* Shell surfaces */
+  --color-background: #0d0f12;
+  --color-surface: #16191d;
+  --color-surface-elevated: #1c2025;
+  --color-border: #2a2e34;
 
-    /* Shell text */
-    --color-text: #e8eaed;
-    --color-text-muted: #8a8f98;
+  /* Shell text */
+  --color-text: #e8eaed;
+  --color-text-muted: #8a8f98;
 
-    /* One controlled accent, used sparingly */
-    --color-accent: #4ee1a0;
+  /* One controlled accent, used sparingly */
+  --color-accent: #4ee1a0;
 
-    /* Status colors (introduced properly once invoice status exists) */
-    --color-success: #4ee1a0;
-    --color-warning: #e0b64e;
-    --color-danger: #f2555a;
+  /* Status colors (introduced properly once invoice status exists) */
+  --color-success: #4ee1a0;
+  --color-warning: #e0b64e;
+  --color-danger: #f2555a;
 
-    /* Invoice paper — deliberately light, contrasting the dark shell */
-    --paper-background: #ffffff;
-    --paper-text: #1a1c1f;
-    --paper-muted: #6b7280;
-    --paper-border: #dfe2e6;
+  /* Invoice paper — deliberately light, contrasting the dark shell */
+  --paper-background: #ffffff;
+  --paper-text: #1a1c1f;
+  --paper-muted: #6b7280;
+  --paper-border: #dfe2e6;
 
-    /* Typography */
-    --font-ui: 'Onest', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  /* Typography */
+  --font-ui:
+    "Onest", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+    sans-serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 
-    /* Spacing scale */
-    --space-1: 4px;
-    --space-2: 8px;
-    --space-3: 12px;
-    --space-4: 16px;
-    --space-5: 24px;
-    --space-6: 32px;
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
 
-    --radius-sm: 4px;
-    --radius-md: 8px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
 
-    --transition-base: 150ms ease;
+  --transition-base: 150ms ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    :root {
-        --transition-base: 0ms;
-    }
+  :root {
+    --transition-base: 0ms;
+  }
 }
